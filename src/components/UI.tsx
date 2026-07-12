@@ -1,15 +1,17 @@
-import React from 'react';
-import { 
-  Award, 
-  Lock, 
-  Unlock, 
-  FileText, 
-  X, 
-  Check, 
-  Shield 
+import React, { useState } from 'react';
+import {
+  Award,
+  Lock,
+  FileText,
+  X,
+  Check,
+  Shield,
+  EyeOff,
+  Eye,
+  Clock3
 } from 'lucide-react';
-import { Attempt, User } from '../types';
-import { LEVELS } from '../data/seedData';
+import { Attempt, User, Lesson } from '../types';
+import { LEVELS, SUBJECTS } from '../data/seedData';
 
 export function AnTamLogo({ className = "", size = 48, withText = false }: { className?: string; size?: number; withText?: boolean }) {
   return (
@@ -321,11 +323,29 @@ export function MedalDot({ medal }: { medal: 'Đồng' | 'Bạc' | 'Vàng' | 'Ki
   );
 }
 
-// Helper scoring structures
-export function bestAttemptsByLevel(attempts: Attempt[], userId: string): Record<string, Attempt> {
+// --- Content / quiz visibility helpers ---
+export function isContentVisible(item: { hidden?: boolean; visibleAt?: string }): boolean {
+  if (item.visibleAt) return new Date(item.visibleAt).getTime() <= Date.now();
+  return !item.hidden;
+}
+
+export function isLessonContentVisible(lesson: Lesson): boolean {
+  return isContentVisible({ hidden: lesson.contentHidden, visibleAt: lesson.contentVisibleAt });
+}
+
+export function isLessonQuizVisible(lesson: Lesson): boolean {
+  return isContentVisible({ hidden: lesson.quizHidden, visibleAt: lesson.quizVisibleAt });
+}
+
+// Helper scoring structures (progression is now driven by ordered Lessons per subject/grade)
+export function orderedLessons(lessons: Lesson[], subject: string, grade: number): Lesson[] {
+  return lessons.filter(l => l.subject === subject && l.grade === grade).sort((a, b) => a.order - b.order);
+}
+
+export function bestAttemptsByLesson(attempts: Attempt[], userId: string): Record<string, Attempt> {
   const map: Record<string, Attempt> = {};
   attempts.filter(a => a.userId === userId).forEach(a => {
-    const key = `${a.subject}|${a.grade}|${a.level}`;
+    const key = `${a.subject}|${a.grade}|${a.lessonId}`;
     if (!map[key] || a.score > map[key].score) {
       map[key] = a;
     }
@@ -333,109 +353,189 @@ export function bestAttemptsByLevel(attempts: Attempt[], userId: string): Record
   return map;
 }
 
-export function highestPassedLevel(attempts: Attempt[], userId: string, subject: string, grade: number): number {
+export function highestPassedLessonOrder(attempts: Attempt[], lessons: Lesson[], userId: string, subject: string, grade: number): number {
+  const ol = orderedLessons(lessons, subject, grade);
   let max = 0;
   attempts.filter(a => a.userId === userId && a.subject === subject && a.grade === grade && a.passed)
-    .forEach(a => { 
-      if (a.level > max) max = a.level; 
+    .forEach(a => {
+      const lesson = ol.find(l => l.id === a.lessonId);
+      if (lesson && lesson.order > max) max = lesson.order;
     });
   return max;
 }
 
-export function isLevelUnlocked(attempts: Attempt[], userId: string, subject: string, grade: number, level: number): boolean {
-  if (level === 1) return true;
-  return highestPassedLevel(attempts, userId, subject, grade) >= level - 1;
+export function isLessonUnlocked(attempts: Attempt[], lessons: Lesson[], userId: string, subject: string, grade: number, order: number): boolean {
+  if (order <= 1) return true;
+  return highestPassedLessonOrder(attempts, lessons, userId, subject, grade) >= order - 1;
 }
 
 export function userTotalPoints(attempts: Attempt[], userId: string): number {
-  const map = bestAttemptsByLevel(attempts, userId);
+  const map = bestAttemptsByLesson(attempts, userId);
   return Object.values(map).reduce((sum, a) => sum + a.score, 0);
 }
 
-export function userMedals(attempts: Attempt[], userId: string, grade: number): Array<{ subject: string; medal: 'Đồng' | 'Bạc' | 'Vàng' | 'Kim cương'; level: number }> {
-  const medals: Array<{ subject: string; medal: 'Đồng' | 'Bạc' | 'Vàng' | 'Kim cương'; level: number }> = [];
-  ["Toán", "Tiếng Anh", "Văn", "KHTN"].forEach(subject => {
-    const lvl = highestPassedLevel(attempts, userId, subject, grade);
-    const info = LEVELS.find(l => l.id === lvl);
-    if (info && info.medal) {
-      medals.push({ subject, medal: info.medal, level: lvl });
+// Ladder rung styling reuses the LEVELS tier definitions, matched by lesson order position.
+export function tierForOrder(order: number) {
+  const idx = Math.min(Math.max(order - 1, 0), LEVELS.length - 1);
+  return LEVELS[idx];
+}
+
+export function userMedals(attempts: Attempt[], lessons: Lesson[], userId: string, grade: number): Array<{ subject: string; medal: 'Đồng' | 'Bạc' | 'Vàng' | 'Kim cương'; order: number }> {
+  const medals: Array<{ subject: string; medal: 'Đồng' | 'Bạc' | 'Vàng' | 'Kim cương'; order: number }> = [];
+  SUBJECTS.forEach(subject => {
+    const order = highestPassedLessonOrder(attempts, lessons, userId, subject, grade);
+    if (order > 0) {
+      const tier = tierForOrder(order);
+      if (tier.medal) medals.push({ subject, medal: tier.medal, order });
     }
   });
   return medals;
 }
 
-export function computeLeaderboard(users: User[], attempts: Attempt[]): Array<{ user: User; points: number; activity: number; medals: Array<{ subject: string; medal: 'Đồng' | 'Bạc' | 'Vàng' | 'Kim cương'; level: number }> }> {
+export function computeLeaderboard(users: User[], attempts: Attempt[], lessons: Lesson[]): Array<{ user: User; points: number; activity: number; medals: Array<{ subject: string; medal: 'Đồng' | 'Bạc' | 'Vàng' | 'Kim cương'; order: number }> }> {
   return users
     .filter(u => u.role === 'student')
     .map(u => {
       const points = userTotalPoints(attempts, u.id);
       const activity = attempts.filter(a => a.userId === u.id).length;
-      const medals = userMedals(attempts, u.id, u.grade || 6);
+      const medals = userMedals(attempts, lessons, u.id, u.grade || 6);
       return { user: u, points, activity, medals };
     })
     .sort((a, b) => b.points - a.points || b.activity - a.activity);
 }
 
-interface LevelLadderProps {
+// Flat, sequential lesson progress track — deliberately NOT a tiered/leveled ladder.
+// Every lesson renders at the same size; status is shown via color/icon only.
+interface LessonTrackProps {
   subject: string;
   grade: number;
+  lessons: Lesson[];
   attempts: Attempt[];
   userId: string;
-  onSelect?: (level: number) => void;
+  onSelect?: (lessonId: string) => void;
   compact?: boolean;
 }
 
-export function LevelLadder({ 
-  subject, 
-  grade, 
-  attempts, 
-  userId, 
-  onSelect, 
-  compact = false 
-}: LevelLadderProps) {
-  const passedMax = highestPassedLevel(attempts, userId, subject, grade);
-  const bestMap = bestAttemptsByLevel(attempts, userId);
-  
+export function LessonTrack({
+  subject,
+  grade,
+  lessons,
+  attempts,
+  userId,
+  onSelect,
+  compact = false
+}: LessonTrackProps) {
+  const ol = orderedLessons(lessons, subject, grade).filter(isLessonQuizVisible);
+  const passedMax = highestPassedLessonOrder(attempts, lessons, userId, subject, grade);
+  const bestMap = bestAttemptsByLesson(attempts, userId);
+  const size = compact ? "w-9 h-9 text-xs" : "w-11 h-11 text-sm";
+
   return (
-    <div className="relative w-full">
-      <div className={`flex ${compact ? "gap-2" : "gap-3"} items-end w-full`}>
-        {LEVELS.map((lv, idx) => {
-          const unlocked = isLevelUnlocked(attempts, userId, subject, grade, lv.id);
-          const passed = passedMax >= lv.id;
-          const best = bestMap[`${subject}|${grade}|${lv.id}`];
-          const h = compact ? 46 + idx * 14 : 60 + idx * 18;
-          
-          return (
-            <button 
-              key={lv.id} 
-              disabled={!unlocked} 
-              onClick={() => onSelect && onSelect(lv.id)}
-              className={`group relative flex-1 flex flex-col items-center justify-end rounded-t-xl transition-all ${unlocked ? "cursor-pointer hover:-translate-y-1" : "cursor-not-allowed"}`}
-              style={{ height: h }}
-            >
-              <div 
-                className={`w-full h-full rounded-t-xl bg-gradient-to-t ${lv.grad} ${unlocked ? "opacity-100" : "opacity-30"} flex flex-col items-center justify-start pt-2 shadow-inner`}
-              >
-                {passed ? (
-                  <Award size={compact ? 14 : 18} className="text-white animate-pulse" />
-                ) : unlocked ? (
-                  <Unlock size={compact ? 12 : 16} className="text-white/90" />
-                ) : (
-                  <Lock size={compact ? 12 : 16} className="text-white/80" />
-                )}
-              </div>
-              <span className="mt-1.5 text-[10px] sm:text-xs font-semibold text-slate-600 text-center leading-tight">
-                {lv.name}
-              </span>
-              {best && (
-                <span className="text-[10px] text-slate-400 font-medium">
-                  {best.score}/10
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+    <div className="flex flex-wrap gap-2">
+      {ol.map(lesson => {
+        const unlocked = isLessonUnlocked(attempts, lessons, userId, subject, grade, lesson.order);
+        const passed = passedMax >= lesson.order;
+        const best = bestMap[`${subject}|${grade}|${lesson.id}`];
+
+        return (
+          <button
+            key={lesson.id}
+            disabled={!unlocked}
+            onClick={() => onSelect && onSelect(lesson.id)}
+            title={`${lesson.title}${best ? ` · ${best.score}/10` : ""}`}
+            className={`${size} shrink-0 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
+              passed
+                ? "bg-emerald-500 border-emerald-500 text-white"
+                : unlocked
+                  ? `border-emerald-300 text-emerald-700 bg-white ${onSelect ? "cursor-pointer hover:border-emerald-500" : ""}`
+                  : "border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed"
+            }`}
+          >
+            {passed ? <Check size={compact ? 14 : 16} /> : unlocked ? lesson.order : <Lock size={compact ? 12 : 14} />}
+          </button>
+        );
+      })}
+      {ol.length === 0 && (
+        <p className="text-xs text-slate-400 italic py-2">
+          Chưa có bài kiểm tra nào được mở cho môn học này.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// --- Admin visibility toolbar: Hide / Show / Schedule display time ---
+interface VisibilityToolbarProps {
+  label: string;
+  hidden?: boolean;
+  visibleAt?: string;
+  onHide: () => void;
+  onShow: () => void;
+  onSchedule: (isoDateTime: string) => void;
+}
+
+export function VisibilityToolbar({ label, hidden, visibleAt, onHide, onShow, onSchedule }: VisibilityToolbarProps) {
+  const [scheduling, setScheduling] = useState(false);
+  const [dt, setDt] = useState('');
+  const scheduledFuture = !!visibleAt && new Date(visibleAt).getTime() > Date.now();
+  const effectivelyHidden = scheduledFuture ? true : !!hidden;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs font-semibold text-slate-500 mr-0.5">{label}:</span>
+      <Badge tone={scheduledFuture ? "amber" : effectivelyHidden ? "slate" : "green"}>
+        {scheduledFuture
+          ? `Hẹn hiện: ${new Date(visibleAt!).toLocaleString("vi-VN")}`
+          : effectivelyHidden ? "Đang ẩn" : "Đang hiện"}
+      </Badge>
+      <button
+        onClick={onHide}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+        title="Ẩn nội dung"
+      >
+        <EyeOff size={12} /> Ẩn nội dung
+      </button>
+      <button
+        onClick={onShow}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
+        title="Hiện nội dung"
+      >
+        <Eye size={12} /> Hiện nội dung
+      </button>
+      <button
+        onClick={() => setScheduling(v => !v)}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-sky-200 text-sky-700 hover:bg-sky-50 transition-colors"
+        title="Đặt thời gian hiển thị"
+      >
+        <Clock3 size={12} /> Đặt thời gian hiển thị
+      </button>
+      {scheduling && (
+        <div className="flex items-center gap-1.5 mt-1 w-full">
+          <input
+            type="datetime-local"
+            value={dt}
+            onChange={e => setDt(e.target.value)}
+            className="rounded-lg border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          />
+          <button
+            onClick={() => {
+              if (!dt) return;
+              onSchedule(new Date(dt).toISOString());
+              setScheduling(false);
+              setDt('');
+            }}
+            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            Lưu lịch
+          </button>
+          <button
+            onClick={() => setScheduling(false)}
+            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-100"
+          >
+            Huỷ
+          </button>
+        </div>
+      )}
     </div>
   );
 }

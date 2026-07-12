@@ -1,8 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { BookOpen, ExternalLink, ChevronDown, ChevronUp, Award, Clock, HelpCircle } from 'lucide-react';
 import { User, Lesson, Attempt, Question } from '../types';
-import { Card, Badge, LevelLadder, highestPassedLevel, isLevelUnlocked, bestAttemptsByLevel, MedalDot, Button, EmptyState, Input, Textarea, Modal } from './UI';
-import { SUBJECTS, SUBJECT_COLOR, LEVELS, norm, shuffle } from '../data/seedData';
+import {
+  Card, Badge, LessonTrack, highestPassedLessonOrder, isLessonUnlocked, bestAttemptsByLesson,
+  orderedLessons, isLessonContentVisible, isLessonQuizVisible, tierForOrder,
+  MedalDot, Button, EmptyState, Input, Textarea, Modal
+} from './UI';
+import { SUBJECTS, SUBJECT_COLOR, norm } from '../data/seedData';
 
 interface StudentHomeProps {
   user: User;
@@ -16,14 +20,12 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
   const [selectedSubject, setSelectedSubject] = useState<string>("Toán");
 
   const getMySubjectLessons = (subject: string) => {
-    return lessons
-      .filter(l => l.subject === subject && l.grade === user.grade)
-      .sort((a, b) => a.order - b.order);
+    return orderedLessons(lessons, subject, user.grade || 6).filter(isLessonContentVisible);
   };
 
   const activeLessons = getMySubjectLessons(selectedSubject);
   const activeColor = SUBJECT_COLOR[selectedSubject] || { bg: "bg-slate-50", text: "text-slate-700", ring: "ring-slate-200", solid: "bg-slate-600" };
-  const activePassedMax = highestPassedLevel(attempts, user.id, selectedSubject, user.grade || 6);
+  const activePassedMax = highestPassedLessonOrder(attempts, lessons, user.id, selectedSubject, user.grade || 6);
 
   return (
     <div className="animate-fadeUp">
@@ -48,7 +50,7 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
             {SUBJECTS.map(subject => {
               const c = SUBJECT_COLOR[subject] || { bg: "bg-slate-50", text: "text-slate-700", ring: "ring-slate-200", solid: "bg-slate-600" };
               const ls = getMySubjectLessons(subject);
-              const passedMax = highestPassedLevel(attempts, user.id, subject, user.grade || 6);
+              const passedMax = highestPassedLessonOrder(attempts, lessons, user.id, subject, user.grade || 6);
               const isSelected = selectedSubject === subject;
 
               return (
@@ -77,8 +79,8 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
                   
                   <div className="shrink-0 flex flex-col items-end gap-1">
                     <Badge tone={passedMax > 0 ? 'green' : 'slate'}>
-                      {passedMax > 0 
-                        ? (LEVELS.find(l => l.id === passedMax)?.name) 
+                      {passedMax > 0
+                        ? `Đã qua bài ${passedMax}`
                         : "Chưa đạt"
                       }
                     </Badge>
@@ -103,7 +105,7 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
                     <Badge tone="green">Khối {user.grade}</Badge>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
-                    Cấp độ đạt được: <span className="font-bold text-emerald-600">{activePassedMax > 0 ? LEVELS.find(l => l.id === activePassedMax)?.name : "Chưa có"}</span>
+                    Bài học đã qua: <span className="font-bold text-emerald-600">{activePassedMax > 0 ? `Bài ${activePassedMax}` : "Chưa có"}</span>
                   </p>
                 </div>
               </div>
@@ -155,29 +157,29 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
                 </div>
               </div>
 
-              {/* Right Column: Level Ladder */}
+              {/* Right Column: Lesson progress (per-lesson, no tier/level ranking) */}
               <div className="md:col-span-2 flex flex-col justify-between p-4 bg-slate-50/30 rounded-2xl border border-slate-100 h-full">
                 <div>
                   <h3 className="font-bold text-slate-700 text-sm mb-1">
-                    Chinh phục cấp độ
+                    Tiến trình từng bài học
                   </h3>
                   <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                    Đạt từ 8.0 điểm trở lên trong bài kiểm tra để thăng tiến cấp độ tiếp theo.
+                    Đạt từ 8.0 điểm trở lên trong bài kiểm tra để mở khoá bài học tiếp theo.
                   </p>
                 </div>
 
-                <div className="flex items-center justify-center py-2">
-                  <LevelLadder 
-                    subject={selectedSubject} 
-                    grade={user.grade || 6} 
-                    attempts={attempts} 
-                    userId={user.id} 
-                    compact={false}
+                <div className="py-2">
+                  <LessonTrack
+                    subject={selectedSubject}
+                    grade={user.grade || 6}
+                    lessons={lessons}
+                    attempts={attempts}
+                    userId={user.id}
                   />
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 leading-normal">
-                  Chinh phục hết 5 cấp độ để đạt danh hiệu <span className="font-semibold text-emerald-600">Chuyên gia</span> môn {selectedSubject}!
+                  Đã hoàn thành {activePassedMax}/{orderedLessons(lessons, selectedSubject, user.grade || 6).filter(isLessonQuizVisible).length} bài kiểm tra môn {selectedSubject}.
                 </div>
               </div>
             </div>
@@ -191,35 +193,41 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
 interface QuizSelectPageProps {
   user: User;
   attempts: Attempt[];
+  lessons: Lesson[];
   activeSubject: string;
   setActiveSubject: (subject: string) => void;
-  onStartExam: (subject: string, level: number) => void;
+  onStartExam: (subject: string, lessonId: string) => void;
 }
 
-export function QuizSelectPage({ 
-  user, 
-  attempts, 
-  activeSubject, 
-  setActiveSubject, 
-  onStartExam 
+export function QuizSelectPage({
+  user,
+  attempts,
+  lessons,
+  activeSubject,
+  setActiveSubject,
+  onStartExam
 }: QuizSelectPageProps) {
+  const quizLessons = orderedLessons(lessons, activeSubject, user.grade || 6).filter(isLessonQuizVisible);
+  const passedMax = highestPassedLessonOrder(attempts, lessons, user.id, activeSubject, user.grade || 6);
+  const bestMap = bestAttemptsByLesson(attempts, user.id);
+
   return (
     <div className="animate-fadeUp">
       <div className="mb-6">
-        <h1 className="text-2xl font-extrabold text-slate-800">Kiểm tra & Xếp cấp</h1>
+        <h1 className="text-2xl font-extrabold text-slate-800">Kiểm tra theo bài học</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Chọn môn học, sau đó chọn cấp độ để bắt đầu bài kiểm tra (10 câu/cấp, đạt ≥8 điểm để qua cấp).
+          Chọn môn học, sau đó chọn bài học để bắt đầu bài kiểm tra (10 câu/bài, đạt ≥8 điểm để mở khoá bài tiếp theo).
         </p>
       </div>
 
       <div className="flex gap-2 mb-6 overflow-x-auto scrollbar-none pb-1">
         {SUBJECTS.map(s => (
-          <button 
-            key={s} 
+          <button
+            key={s}
             onClick={() => setActiveSubject(s)}
             className={`shrink-0 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
-              activeSubject === s 
-                ? "bg-emerald-600 text-white border-emerald-600" 
+              activeSubject === s
+                ? "bg-emerald-600 text-white border-emerald-600"
                 : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"
             }`}
           >
@@ -234,38 +242,28 @@ export function QuizSelectPage({
             {activeSubject} · Khối {user.grade}
           </h3>
           <Badge tone="green">
-            Cấp cao nhất đã đạt: {(() => {
-              const p = highestPassedLevel(attempts, user.id, activeSubject, user.grade || 6);
-              return p > 0 ? LEVELS.find(l => l.id === p)?.name : "Chưa có";
-            })()}
+            Đã hoàn thành {passedMax}/{quizLessons.length} bài
           </Badge>
         </div>
 
-        <LevelLadder 
-          subject={activeSubject} 
-          grade={user.grade || 6} 
-          attempts={attempts} 
-          userId={user.id}
-          onSelect={(lvl) => onStartExam(activeSubject, lvl)} 
-        />
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-8">
-          {LEVELS.map(lv => {
-            const unlocked = isLevelUnlocked(attempts, user.id, activeSubject, user.grade || 6, lv.id);
-            const best = bestAttemptsByLevel(attempts, user.id)[`${activeSubject}|${user.grade}|${lv.id}`];
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {quizLessons.map(lesson => {
+            const tier = tierForOrder(lesson.order);
+            const unlocked = isLessonUnlocked(attempts, lessons, user.id, activeSubject, user.grade || 6, lesson.order);
+            const best = bestMap[`${activeSubject}|${user.grade}|${lesson.id}`];
             const passed = best?.passed;
 
             return (
-              <div 
-                key={lv.id} 
+              <div
+                key={lesson.id}
                 className={`rounded-xl border p-4 flex flex-col justify-between min-h-[160px] ${
                   unlocked ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50 opacity-60"
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between gap-1.5">
-                    <span className="font-bold text-sm text-slate-700">{lv.name}</span>
-                    {lv.medal && <MedalDot medal={lv.medal} />}
+                    <span className="font-bold text-sm text-slate-700">{lesson.title}</span>
+                    {tier.medal && <MedalDot medal={tier.medal} />}
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">10 câu hỏi · Cần ≥8 điểm</p>
                   {best && (
@@ -275,17 +273,22 @@ export function QuizSelectPage({
                   )}
                 </div>
 
-                <Button 
-                  size="sm" 
-                  disabled={!unlocked} 
+                <Button
+                  size="sm"
+                  disabled={!unlocked}
                   className="mt-3 justify-center w-full"
-                  onClick={() => onStartExam(activeSubject, lv.id)}
+                  onClick={() => onStartExam(activeSubject, lesson.id)}
                 >
                   {unlocked ? (best ? "Làm lại" : "Bắt đầu") : "Chưa mở khoá"}
                 </Button>
               </div>
             );
           })}
+          {quizLessons.length === 0 && (
+            <div className="sm:col-span-2 lg:col-span-5">
+              <EmptyState text="Chưa có bài kiểm tra nào được mở cho môn học này." />
+            </div>
+          )}
         </div>
       </Card>
     </div>
@@ -295,12 +298,13 @@ export function QuizSelectPage({
 interface ExamPageProps {
   user: User;
   subject: string;
-  level: number;
+  lessonId: string;
+  lessons: Lesson[];
   questions: Question[];
   onSubmit: (result: {
     subject: string;
     grade: number;
-    level: number;
+    lessonId: string;
     score: number;
     total: number;
     passed: boolean;
@@ -309,11 +313,11 @@ interface ExamPageProps {
   onCancel: () => void;
 }
 
-export function ExamPage({ user, subject, level, questions, onSubmit, onCancel }: ExamPageProps) {
-  // Extract questions matching subject, grade, level
+export function ExamPage({ user, subject, lessonId, lessons, questions, onSubmit, onCancel }: ExamPageProps) {
+  // Extract questions matching the lesson
   const qs = useMemo(() => {
-    return questions.filter(q => q.subject === subject && q.grade === user.grade && q.level === level);
-  }, [questions, subject, level, user.grade]);
+    return questions.filter(q => q.lessonId === lessonId);
+  }, [questions, lessonId]);
 
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [idx, setIdx] = useState(0);
@@ -327,14 +331,14 @@ export function ExamPage({ user, subject, level, questions, onSubmit, onCancel }
     return answers[k] !== undefined && answers[k] !== "";
   }).length;
 
-  const lv = LEVELS.find(l => l.id === level) || LEVELS[0];
+  const lesson = lessons.find(l => l.id === lessonId);
 
   const submitExam = () => {
     let totalScore = 0;
     const details = qs.map(q => {
       let score = 0;
       const given = answers[q.id];
-      
+
       if (q.type === 'mcq') {
         score = (given === q.correct) ? 1 : 0;
       } else if (q.type === 'short') {
@@ -342,11 +346,11 @@ export function ExamPage({ user, subject, level, questions, onSubmit, onCancel }
       } else if (q.type === 'essay') {
         const text = norm(given || "");
         const matched = (q.keywords || []).filter(k => text.includes(norm(k)));
-        score = (q.keywords && q.keywords.length > 0) 
-          ? +(matched.length / q.keywords.length).toFixed(2) 
+        score = (q.keywords && q.keywords.length > 0)
+          ? +(matched.length / q.keywords.length).toFixed(2)
           : 0;
       }
-      
+
       totalScore += score;
       return {
         qid: q.id,
@@ -358,11 +362,11 @@ export function ExamPage({ user, subject, level, questions, onSubmit, onCancel }
     });
 
     totalScore = Math.round(totalScore * 10) / 10;
-    
+
     onSubmit({
       subject,
       grade: user.grade || 6,
-      level,
+      lessonId,
       score: totalScore,
       total: 10,
       passed: totalScore >= 8,
@@ -373,7 +377,7 @@ export function ExamPage({ user, subject, level, questions, onSubmit, onCancel }
   if (qs.length === 0) {
     return (
       <Card className="p-8 text-center max-w-lg mx-auto">
-        <EmptyState text="Chưa có câu hỏi cho cấp độ này. Vui lòng liên hệ Admin để bổ sung ngân hàng câu hỏi." />
+        <EmptyState text="Chưa có câu hỏi cho bài học này. Vui lòng liên hệ Admin để bổ sung ngân hàng câu hỏi." />
         <Button onClick={onCancel} variant="secondary" className="mt-4">
           Quay lại
         </Button>
@@ -387,7 +391,7 @@ export function ExamPage({ user, subject, level, questions, onSubmit, onCancel }
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="font-extrabold text-lg text-slate-800">{subject} · {lv.name}</h2>
+          <h2 className="font-extrabold text-lg text-slate-800">{subject} · {lesson ? lesson.title : ""}</h2>
           <p className="text-xs text-slate-400">
             Khối {user.grade} · Câu {idx + 1}/{qs.length} · Đã trả lời {answeredCount}/{qs.length}
           </p>
@@ -509,12 +513,14 @@ export function ExamPage({ user, subject, level, questions, onSubmit, onCancel }
 
 interface ResultPageProps {
   result: Attempt;
+  lessons: Lesson[];
   onContinue: () => void;
   onRetry: () => void;
 }
 
-export function ResultPage({ result, onContinue, onRetry }: ResultPageProps) {
-  const lv = LEVELS.find(l => l.id === result.level) || LEVELS[0];
+export function ResultPage({ result, lessons, onContinue, onRetry }: ResultPageProps) {
+  const lesson = lessons.find(l => l.id === result.lessonId);
+  const tier = tierForOrder(lesson?.order || 1);
   const passed = result.passed;
 
   return (
@@ -525,38 +531,38 @@ export function ResultPage({ result, onContinue, onRetry }: ResultPageProps) {
         }`}>
           <Award size={36} className={passed ? "text-emerald-600" : "text-amber-600"} />
         </div>
-        
+
         <h2 className="text-2xl font-extrabold text-slate-800 mb-1">
-          {passed ? "Chúc mừng bạn đã vượt cấp! 🎉" : "Chưa đạt yêu cầu"}
+          {passed ? "Chúc mừng bạn đã hoàn thành bài học! 🎉" : "Chưa đạt yêu cầu"}
         </h2>
         <p className="text-sm text-slate-500 mb-5">
-          {result.subject} · {lv.name} · Khối {result.grade}
+          {result.subject} · {lesson ? lesson.title : ""} · Khối {result.grade}
         </p>
-        
+
         <div className="text-5xl font-extrabold text-emerald-600 mb-2">
           {result.score.toFixed(1)}
           <span className="text-xl text-slate-300">/10</span>
         </div>
-        
+
         <p className="text-sm text-slate-500 mb-6 px-4">
-          {passed 
-            ? `Bạn đã đạt điều kiện (≥8 điểm) để mở khoá cấp độ tiếp theo.` 
-            : `Cần đạt tối thiểu 8/10 điểm để qua cấp. Hãy ôn tập và thử lại nhé!`
+          {passed
+            ? `Bạn đã đạt điều kiện (≥8 điểm) để mở khoá bài học tiếp theo.`
+            : `Cần đạt tối thiểu 8/10 điểm để qua bài. Hãy ôn tập và thử lại nhé!`
           }
         </p>
 
-        {passed && lv.medal && (
+        {passed && tier.medal && (
           <div className="flex justify-center mb-6">
-            <MedalDot medal={lv.medal} />
+            <MedalDot medal={tier.medal} />
           </div>
         )}
 
         <div className="flex gap-3">
           <Button variant="secondary" className="flex-1 justify-center" onClick={onRetry}>
-            Làm lại cấp này
+            Làm lại bài này
           </Button>
           <Button className="flex-1 justify-center" onClick={onContinue}>
-            Về danh sách cấp độ
+            Về danh sách bài học
           </Button>
         </div>
       </Card>

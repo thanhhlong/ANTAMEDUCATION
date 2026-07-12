@@ -20,13 +20,12 @@ import {
   generateAllQuestions, 
   generateLessons, 
   generatePosts, 
-  generateDocuments, 
-  LEVELS, 
-  nid, 
+  generateDocuments,
+  nid,
   todayStr 
 } from './data/seedData';
 import { AuthShell, LoginPage, RegisterPage } from './components/Auth';
-import { Toast, Badge, Avatar, highestPassedLevel, AnTamLogo } from './components/UI';
+import { Toast, Badge, Avatar, highestPassedLessonOrder, tierForOrder, AnTamLogo } from './components/UI';
 import { StudentHome, QuizSelectPage, ExamPage, ResultPage } from './components/Student';
 import { TeacherDocuments } from './components/Teacher';
 import { 
@@ -44,7 +43,7 @@ import { ChatbotPage } from './components/Chatbot';
 const NAV_ITEMS = {
   student: [
     { key: "home", label: "Chương trình học", icon: <Home size={17} /> },
-    { key: "quiz", label: "Kiểm tra & Xếp cấp", icon: <HelpCircle size={17} /> },
+    { key: "quiz", label: "Kiểm tra bài học", icon: <HelpCircle size={17} /> },
     { key: "ranking", label: "Bảng xếp hạng", icon: <Trophy size={17} /> },
     { key: "profile", label: "Hồ sơ của tôi", icon: <UserIcon size={17} /> },
     { key: "posts", label: "Bài viết chia sẻ", icon: <MessageSquare size={17} /> },
@@ -82,8 +81,9 @@ const ROLE_TONE: Record<string, string> = { admin: "red", teacher: "indigo", stu
 export default function App() {
   // State initialization
   const [users, setUsers] = useState<User[]>(() => generateUsers());
-  const [questions, setQuestions] = useState<Question[]>(() => generateAllQuestions());
-  const [lessons, setLessons] = useState<Lesson[]>(() => generateLessons());
+  const [initialLessons] = useState<Lesson[]>(() => generateLessons());
+  const [lessons, setLessons] = useState<Lesson[]>(initialLessons);
+  const [questions, setQuestions] = useState<Question[]>(() => generateAllQuestions(initialLessons));
   const [posts, setPosts] = useState<Post[]>(() => generatePosts(users));
   const [documents, setDocuments] = useState<Document[]>(() => generateDocuments(users));
   const [attempts, setAttempts] = useState<Attempt[]>([]);
@@ -94,7 +94,7 @@ export default function App() {
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [page, setPage] = useState<string>('home');
   const [activeSubject, setActiveSubject] = useState<string>("Toán");
-  const [examState, setExamState] = useState<{ subject: string; level: number } | null>(null);
+  const [examState, setExamState] = useState<{ subject: string; lessonId: string } | null>(null);
   const [result, setResult] = useState<Attempt | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
@@ -146,46 +146,51 @@ export default function App() {
     showToast("Đã gửi bài viết, vui lòng chờ Admin duyệt.");
   };
 
-  const handleStartExam = (subject: string, level: number) => {
-    setExamState({ subject, level });
+  const handleStartExam = (subject: string, lessonId: string) => {
+    setExamState({ subject, lessonId });
     setResult(null);
   };
 
   const handleSubmitExam = (examResult: {
     subject: string;
     grade: number;
-    level: number;
+    lessonId: string;
     score: number;
     total: number;
     passed: boolean;
     details: any[];
   }) => {
     if (!currentUser) return;
-    
-    const alreadyPassed = highestPassedLevel(attempts, currentUser.id, examResult.subject, examResult.grade) >= examResult.level;
+
+    const lesson = lessons.find(l => l.id === examResult.lessonId);
+    const alreadyPassed = lesson
+      ? highestPassedLessonOrder(attempts, lessons, currentUser.id, examResult.subject, examResult.grade) >= lesson.order
+      : false;
     const newAttempt: Attempt = {
       id: nid("att"),
       userId: currentUser.id,
       ...examResult,
       date: new Date().toISOString()
     };
-    
+
     setAttempts(prev => [...prev, newAttempt]);
-    
-    if (examResult.passed && !alreadyPassed) {
-      const lv = LEVELS.find(l => l.id === examResult.level) || LEVELS[0];
+
+    if (examResult.passed && !alreadyPassed && lesson) {
+      const tier = tierForOrder(lesson.order);
       const newCert: Certificate = {
         id: nid("cert"),
         userId: currentUser.id,
         subject: examResult.subject,
         grade: examResult.grade,
-        level: examResult.level,
+        lessonId: lesson.id,
+        lessonTitle: lesson.title,
+        medal: tier.medal,
         date: todayStr()
       };
       setCertificates(prev => [...prev, newCert]);
-      showToast(`Chúc mừng! Bạn đã đạt cấp ${lv.name} và nhận huy chương ${lv.medal || ""}!`);
+      showToast(`Chúc mừng! Bạn đã hoàn thành "${lesson.title}"${tier.medal ? ` và nhận huy chương ${tier.medal}!` : "!"}`);
     }
-    
+
     setExamState(null);
     setResult(newAttempt);
   };
@@ -221,47 +226,50 @@ export default function App() {
   if (currentUser.role === 'student') {
     if (examState) {
       content = (
-        <ExamPage 
-          user={currentUser} 
-          subject={examState.subject} 
-          level={examState.level} 
+        <ExamPage
+          user={currentUser}
+          subject={examState.subject}
+          lessonId={examState.lessonId}
+          lessons={lessons}
           questions={questions}
-          onSubmit={handleSubmitExam} 
-          onCancel={() => setExamState(null)} 
+          onSubmit={handleSubmitExam}
+          onCancel={() => setExamState(null)}
         />
       );
     } else if (result) {
       content = (
-        <ResultPage 
-          result={result} 
-          onContinue={() => { setResult(null); setPage("quiz"); }} 
-          onRetry={() => { setExamState({ subject: result.subject, level: result.level }); setResult(null); }} 
+        <ResultPage
+          result={result}
+          lessons={lessons}
+          onContinue={() => { setResult(null); setPage("quiz"); }}
+          onRetry={() => { setExamState({ subject: result.subject, lessonId: result.lessonId }); setResult(null); }}
         />
       );
     } else if (page === 'home') {
       content = (
-        <StudentHome 
-          user={currentUser} 
-          lessons={lessons} 
-          attempts={attempts} 
-          setPage={setPage} 
-          setActiveSubject={setActiveSubject} 
+        <StudentHome
+          user={currentUser}
+          lessons={lessons}
+          attempts={attempts}
+          setPage={setPage}
+          setActiveSubject={setActiveSubject}
         />
       );
     } else if (page === 'quiz') {
       content = (
-        <QuizSelectPage 
-          user={currentUser} 
-          attempts={attempts} 
-          activeSubject={activeSubject} 
-          setActiveSubject={setActiveSubject} 
-          onStartExam={handleStartExam} 
+        <QuizSelectPage
+          user={currentUser}
+          attempts={attempts}
+          lessons={lessons}
+          activeSubject={activeSubject}
+          setActiveSubject={setActiveSubject}
+          onStartExam={handleStartExam}
         />
       );
     } else if (page === 'ranking') {
-      content = <RankingPage users={users} attempts={attempts} currentUser={currentUser} />;
+      content = <RankingPage users={users} attempts={attempts} lessons={lessons} currentUser={currentUser} />;
     } else if (page === 'profile') {
-      content = <ProfilePage user={currentUser} attempts={attempts} certificates={certificates} />;
+      content = <ProfilePage user={currentUser} attempts={attempts} certificates={certificates} lessons={lessons} />;
     } else if (page === 'posts') {
       content = <PostsPage user={currentUser} posts={posts} users={users} onAddPost={handleAddPost} />;
     } else if (page === 'chatbot') {
@@ -304,13 +312,21 @@ export default function App() {
         />
       );
     } else if (page === 'questions') {
-      content = <AdminQuestions questions={questions} setQuestions={setQuestions} showToast={showToast} />;
+      content = (
+        <AdminQuestions
+          questions={questions}
+          setQuestions={setQuestions}
+          lessons={lessons}
+          setLessons={setLessons}
+          showToast={showToast}
+        />
+      );
     } else if (page === 'lessons') {
       content = <AdminLessons lessons={lessons} setLessons={setLessons} showToast={showToast} />;
     } else if (page === 'posts') {
       content = <AdminPosts posts={posts} setPosts={setPosts} users={users} showToast={showToast} />;
     } else if (page === 'ranking') {
-      content = <RankingPage users={users} attempts={attempts} currentUser={currentUser} />;
+      content = <RankingPage users={users} attempts={attempts} lessons={lessons} currentUser={currentUser} />;
     }
   }
 

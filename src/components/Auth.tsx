@@ -33,15 +33,15 @@ export function AuthShell({ children, subtitle }: AuthShellProps) {
               Học vững tâm,<br />thi an tâm.
             </h2>
             <p className="text-white/85 text-sm leading-relaxed max-w-sm">
-              {subtitle || "Nền tảng học tập & kiểm tra trực tuyến cho học sinh khối 6–9, với lộ trình 5 cấp độ rõ ràng: Nhập môn → Chuyên gia."}
+              {subtitle || "Nền tảng học tập & kiểm tra trực tuyến cho học sinh khối 6–9, học và làm bài kiểm tra lần lượt theo từng bài học."}
             </p>
-            
+
             <div className="mt-6 flex gap-4 text-xs text-white/80">
               <div className="flex items-center gap-1.5">
                 <BookOpen size={15} /> 4 môn học
               </div>
               <div className="flex items-center gap-1.5">
-                <Trophy size={15} /> 5 cấp độ
+                <Trophy size={15} /> Kiểm tra từng bài
               </div>
               <div className="flex items-center gap-1.5">
                 <Award size={15} /> 4 huy chương
@@ -207,7 +207,7 @@ export function RegisterPage({ onRegister, goLogin, users }: RegisterProps) {
       </div>
       
       <h1 className="text-2xl font-extrabold text-slate-800 mb-1">Đăng ký học sinh</h1>
-      <p className="text-sm text-slate-500 mb-6">Tạo tài khoản để bắt đầu hành trình chinh phục 5 cấp độ tri thức.</p>
+      <p className="text-sm text-slate-500 mb-6">Tạo tài khoản để bắt đầu học và làm bài kiểm tra theo từng bài học.</p>
       
       <form onSubmit={submit} className="space-y-4">
         <Input 

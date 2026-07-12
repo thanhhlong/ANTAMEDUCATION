@@ -156,7 +156,7 @@ function essayQ(subject: string, grade: number, level: number, seedIdx: number) 
   };
 }
 
-export function generateQuestionsFor(subject: string, grade: number, level: number): Question[] {
+export function generateQuestionsFor(subject: string, grade: number, lessonId: string, varietySeed: number): Question[] {
   const gens: Record<string, (g: number, l: number, s: number) => { content: string; options: string[]; correct: number }> = {
     "Toán": mcqMath, "Tiếng Anh": mcqEnglish, "Văn": mcqLit, "KHTN": mcqScience
   };
@@ -164,12 +164,12 @@ export function generateQuestionsFor(subject: string, grade: number, level: numb
   const qs: Question[] = [];
 
   for (let i = 0; i < 6; i++) {
-    const m = mk(grade, level, i);
+    const m = mk(grade, varietySeed, i);
     qs.push({
       id: nid("q"),
       subject,
       grade,
-      level,
+      lessonId,
       type: "mcq",
       content: m.content,
       options: m.options,
@@ -178,12 +178,12 @@ export function generateQuestionsFor(subject: string, grade: number, level: numb
   }
 
   for (let i = 0; i < 2; i++) {
-    const s = shortQ(subject, grade, level, i);
+    const s = shortQ(subject, grade, varietySeed, i);
     qs.push({
       id: nid("q"),
       subject,
       grade,
-      level,
+      lessonId,
       type: "short",
       content: s.content,
       sampleAnswer: s.sampleAnswer
@@ -191,12 +191,12 @@ export function generateQuestionsFor(subject: string, grade: number, level: numb
   }
 
   for (let i = 0; i < 2; i++) {
-    const e = essayQ(subject, grade, level, i);
+    const e = essayQ(subject, grade, varietySeed, i);
     qs.push({
       id: nid("q"),
       subject,
       grade,
-      level,
+      lessonId,
       type: "essay",
       content: e.content,
       keywords: e.keywords
@@ -206,14 +206,10 @@ export function generateQuestionsFor(subject: string, grade: number, level: numb
   return qs;
 }
 
-export function generateAllQuestions(): Question[] {
+export function generateAllQuestions(lessons: Lesson[]): Question[] {
   const out: Question[] = [];
-  SUBJECTS.forEach(subject => {
-    GRADES.forEach(grade => {
-      LEVELS.forEach(lv => {
-        out.push(...generateQuestionsFor(subject, grade, lv.id));
-      });
-    });
+  lessons.forEach(lesson => {
+    out.push(...generateQuestionsFor(lesson.subject, lesson.grade, lesson.id, lesson.order));
   });
   return out;
 }
@@ -270,7 +266,7 @@ export function generatePosts(users: User[]): Post[] {
   const teacher = users.find(u => u.role === "teacher") || { id: "teacher" };
   const student = users.find(u => u.role === "student") || { id: "student" };
   return [
-    { id: nid("p"), authorId: admin.id, title: "Chào mừng đến với AN TÂM", content: "AN TÂM là nền tảng học tập và kiểm tra trực tuyến dành cho học sinh khối 6-9. Cùng nhau chinh phục 5 cấp độ tri thức: Nhập môn, Sơ cấp, Trung cấp, Siêu cấp và Chuyên gia!", status: "approved", kind: "official", createdAt: todayStr() },
+    { id: nid("p"), authorId: admin.id, title: "Chào mừng đến với AN TÂM", content: "AN TÂM là nền tảng học tập và kiểm tra trực tuyến dành cho học sinh khối 6-9. Cùng học và làm bài kiểm tra lần lượt theo từng bài học để chinh phục toàn bộ chương trình!", status: "approved", kind: "official", createdAt: todayStr() },
     { id: nid("p"), authorId: teacher.id, title: "Bí quyết ôn tập môn Toán hiệu quả", content: "Học sinh nên luyện tập đều đặn mỗi ngày 30 phút, ưu tiên nắm chắc lý thuyết trước khi làm bài tập nâng cao. Ôn theo từng chuyên đề nhỏ sẽ dễ nhớ hơn.", status: "approved", kind: "official", createdAt: todayStr() },
     { id: nid("p"), authorId: student.id, title: "Chia sẻ cách học từ vựng tiếng Anh", content: "Mình hay dùng flashcard và học 10 từ mới mỗi ngày, ôn lại vào cuối tuần. Cách này giúp mình nhớ lâu hơn rất nhiều!", status: "approved", kind: "community", createdAt: todayStr() },
     { id: nid("p"), authorId: student.id, title: "Kinh nghiệm làm bài luận Văn", content: "Trước khi viết, mình luôn lập dàn ý ngắn gọn để bài viết mạch lạc và không bị thiếu ý.", status: "pending", kind: "community", createdAt: todayStr() },
