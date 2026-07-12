@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Award, FileText, Printer, Clock, BookOpen, GraduationCap } from 'lucide-react';
 import { User, Attempt, Certificate, Lesson } from '../types';
-import { Card, Badge, LevelLadder, MedalDot, Button, EmptyState, Modal, userTotalPoints, userMedals, highestPassedLessonOrder } from './UI';
+import { Card, Badge, LessonTrack, MedalDot, Button, EmptyState, Modal, userTotalPoints, userMedals, highestPassedLessonOrder } from './UI';
 import { SUBJECTS } from '../data/seedData';
 
 interface CertificateViewProps {
@@ -125,7 +125,7 @@ export function ProfilePage({ user, attempts, certificates, lessons }: ProfilePa
                   </Badge>
                 </div>
 
-                <LevelLadder
+                <LessonTrack
                   subject={subject}
                   grade={user.grade || 6}
                   lessons={lessons}
@@ -193,7 +193,7 @@ export function ProfilePage({ user, attempts, certificates, lessons }: ProfilePa
             
             {myCerts.length === 0 && (
               <div className="col-span-2">
-                <EmptyState text="Hoàn thành các cấp độ kiểm tra với điểm số ≥8 để nhận giấy khen vinh danh." />
+                <EmptyState text="Hoàn thành các bài kiểm tra với điểm số ≥8 để nhận giấy khen vinh danh." />
               </div>
             )}
           </div>

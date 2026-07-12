@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Award,
   Lock,
-  Unlock,
   FileText,
   X,
   Check,
@@ -405,7 +404,9 @@ export function computeLeaderboard(users: User[], attempts: Attempt[], lessons: 
     .sort((a, b) => b.points - a.points || b.activity - a.activity);
 }
 
-interface LevelLadderProps {
+// Flat, sequential lesson progress track — deliberately NOT a tiered/leveled ladder.
+// Every lesson renders at the same size; status is shown via color/icon only.
+interface LessonTrackProps {
   subject: string;
   grade: number;
   lessons: Lesson[];
@@ -415,7 +416,7 @@ interface LevelLadderProps {
   compact?: boolean;
 }
 
-export function LevelLadder({
+export function LessonTrack({
   subject,
   grade,
   lessons,
@@ -423,59 +424,42 @@ export function LevelLadder({
   userId,
   onSelect,
   compact = false
-}: LevelLadderProps) {
+}: LessonTrackProps) {
   const ol = orderedLessons(lessons, subject, grade).filter(isLessonQuizVisible);
   const passedMax = highestPassedLessonOrder(attempts, lessons, userId, subject, grade);
   const bestMap = bestAttemptsByLesson(attempts, userId);
+  const size = compact ? "w-9 h-9 text-xs" : "w-11 h-11 text-sm";
 
   return (
-    <div className="relative w-full">
-      <div className={`flex ${compact ? "gap-2" : "gap-3"} items-end w-full`}>
-        {ol.map((lesson, idx) => {
-          const tier = tierForOrder(lesson.order);
-          const unlocked = isLessonUnlocked(attempts, lessons, userId, subject, grade, lesson.order);
-          const passed = passedMax >= lesson.order;
-          const best = bestMap[`${subject}|${grade}|${lesson.id}`];
-          const cappedIdx = Math.min(idx, 6);
-          const h = compact ? 46 + cappedIdx * 10 : 60 + cappedIdx * 14;
+    <div className="flex flex-wrap gap-2">
+      {ol.map(lesson => {
+        const unlocked = isLessonUnlocked(attempts, lessons, userId, subject, grade, lesson.order);
+        const passed = passedMax >= lesson.order;
+        const best = bestMap[`${subject}|${grade}|${lesson.id}`];
 
-          return (
-            <button
-              key={lesson.id}
-              disabled={!unlocked}
-              onClick={() => onSelect && onSelect(lesson.id)}
-              title={lesson.title}
-              className={`group relative flex-1 flex flex-col items-center justify-end rounded-t-xl transition-all ${unlocked ? "cursor-pointer hover:-translate-y-1" : "cursor-not-allowed"}`}
-              style={{ height: h }}
-            >
-              <div
-                className={`w-full h-full rounded-t-xl bg-gradient-to-t ${tier.grad} ${unlocked ? "opacity-100" : "opacity-30"} flex flex-col items-center justify-start pt-2 shadow-inner`}
-              >
-                {passed ? (
-                  <Award size={compact ? 14 : 18} className="text-white animate-pulse" />
-                ) : unlocked ? (
-                  <Unlock size={compact ? 12 : 16} className="text-white/90" />
-                ) : (
-                  <Lock size={compact ? 12 : 16} className="text-white/80" />
-                )}
-              </div>
-              <span className="mt-1.5 text-[10px] sm:text-xs font-semibold text-slate-600 text-center leading-tight">
-                Bài {lesson.order}
-              </span>
-              {best && (
-                <span className="text-[10px] text-slate-400 font-medium">
-                  {best.score}/10
-                </span>
-              )}
-            </button>
-          );
-        })}
-        {ol.length === 0 && (
-          <p className="text-xs text-slate-400 italic py-4 text-center w-full">
-            Chưa có bài kiểm tra nào được mở cho môn học này.
-          </p>
-        )}
-      </div>
+        return (
+          <button
+            key={lesson.id}
+            disabled={!unlocked}
+            onClick={() => onSelect && onSelect(lesson.id)}
+            title={`${lesson.title}${best ? ` · ${best.score}/10` : ""}`}
+            className={`${size} shrink-0 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
+              passed
+                ? "bg-emerald-500 border-emerald-500 text-white"
+                : unlocked
+                  ? `border-emerald-300 text-emerald-700 bg-white ${onSelect ? "cursor-pointer hover:border-emerald-500" : ""}`
+                  : "border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed"
+            }`}
+          >
+            {passed ? <Check size={compact ? 14 : 16} /> : unlocked ? lesson.order : <Lock size={compact ? 12 : 14} />}
+          </button>
+        );
+      })}
+      {ol.length === 0 && (
+        <p className="text-xs text-slate-400 italic py-2">
+          Chưa có bài kiểm tra nào được mở cho môn học này.
+        </p>
+      )}
     </div>
   );
 }

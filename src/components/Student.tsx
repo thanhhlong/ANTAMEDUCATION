@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { BookOpen, ExternalLink, ChevronDown, ChevronUp, Award, Clock, HelpCircle } from 'lucide-react';
 import { User, Lesson, Attempt, Question } from '../types';
 import {
-  Card, Badge, LevelLadder, highestPassedLessonOrder, isLessonUnlocked, bestAttemptsByLesson,
+  Card, Badge, LessonTrack, highestPassedLessonOrder, isLessonUnlocked, bestAttemptsByLesson,
   orderedLessons, isLessonContentVisible, isLessonQuizVisible, tierForOrder,
   MedalDot, Button, EmptyState, Input, Textarea, Modal
 } from './UI';
@@ -157,30 +157,29 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
                 </div>
               </div>
 
-              {/* Right Column: Lesson Ladder */}
+              {/* Right Column: Lesson progress (per-lesson, no tier/level ranking) */}
               <div className="md:col-span-2 flex flex-col justify-between p-4 bg-slate-50/30 rounded-2xl border border-slate-100 h-full">
                 <div>
                   <h3 className="font-bold text-slate-700 text-sm mb-1">
-                    Chinh phục từng bài học
+                    Tiến trình từng bài học
                   </h3>
                   <p className="text-xs text-slate-400 mb-4 leading-relaxed">
                     Đạt từ 8.0 điểm trở lên trong bài kiểm tra để mở khoá bài học tiếp theo.
                   </p>
                 </div>
 
-                <div className="flex items-center justify-center py-2">
-                  <LevelLadder
+                <div className="py-2">
+                  <LessonTrack
                     subject={selectedSubject}
                     grade={user.grade || 6}
                     lessons={lessons}
                     attempts={attempts}
                     userId={user.id}
-                    compact={false}
                   />
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 leading-normal">
-                  Chinh phục hết các bài học để đạt danh hiệu <span className="font-semibold text-emerald-600">Chuyên gia</span> môn {selectedSubject}!
+                  Đã hoàn thành {activePassedMax}/{orderedLessons(lessons, selectedSubject, user.grade || 6).filter(isLessonQuizVisible).length} bài kiểm tra môn {selectedSubject}.
                 </div>
               </div>
             </div>
@@ -243,20 +242,11 @@ export function QuizSelectPage({
             {activeSubject} · Khối {user.grade}
           </h3>
           <Badge tone="green">
-            Bài cao nhất đã qua: {passedMax > 0 ? `Bài ${passedMax}` : "Chưa có"}
+            Đã hoàn thành {passedMax}/{quizLessons.length} bài
           </Badge>
         </div>
 
-        <LevelLadder
-          subject={activeSubject}
-          grade={user.grade || 6}
-          lessons={lessons}
-          attempts={attempts}
-          userId={user.id}
-          onSelect={(lessonId) => onStartExam(activeSubject, lessonId)}
-        />
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {quizLessons.map(lesson => {
             const tier = tierForOrder(lesson.order);
             const unlocked = isLessonUnlocked(attempts, lessons, user.id, activeSubject, user.grade || 6, lesson.order);

@@ -43,7 +43,7 @@ import { ChatbotPage } from './components/Chatbot';
 const NAV_ITEMS = {
   student: [
     { key: "home", label: "Chương trình học", icon: <Home size={17} /> },
-    { key: "quiz", label: "Kiểm tra & Xếp cấp", icon: <HelpCircle size={17} /> },
+    { key: "quiz", label: "Kiểm tra bài học", icon: <HelpCircle size={17} /> },
     { key: "ranking", label: "Bảng xếp hạng", icon: <Trophy size={17} /> },
     { key: "profile", label: "Hồ sơ của tôi", icon: <UserIcon size={17} /> },
     { key: "posts", label: "Bài viết chia sẻ", icon: <MessageSquare size={17} /> },
