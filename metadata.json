@@ -1,0 +1,6 @@
+{
+  "name": "An Tâm",
+  "description": "Nền tảng học tập và kiểm tra trực tuyến dành cho học sinh trung học cơ sở",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

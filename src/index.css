@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(10px);
+  }
+}
+
+/* Animations */
+@keyframes fadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeUp {
+  animation: fadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-popIn {
+  animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Base Body Style */
+body {
+  font-family: "Be Vietnam Pro", sans-serif;
+  background:
+    radial-gradient(1200px 600px at 100% -10%, #dbeafe 0%, transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, #e0f2fe 0%, transparent 55%),
+    #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #bfdbfe;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Print Rules for Certificates */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #certificate-print, #certificate-print * {
+    visibility: visible;
+  }
+  #certificate-print {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    border: 8px double #2563eb !important;
+    background: white !important;
+    box-shadow: none !important;
+  }
+}
