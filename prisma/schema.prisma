@@ -1,0 +1,180 @@
+// AN TAM EDUCATION — Phase 1 backend schema (PostgreSQL)
+// Mirrors the entities currently held in the frontend's local/localStorage state.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  teacher
+  student
+}
+
+enum QuestionType {
+  mcq
+  short
+  essay
+}
+
+enum PostStatus {
+  pending
+  approved
+}
+
+enum PostKind {
+  official
+  community
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  grade        Int?
+  createdAt    DateTime @default(now())
+
+  posts        Post[]
+  attempts     Attempt[]
+  certificates Certificate[]
+  documents    Document[]
+
+  @@map("users")
+}
+
+// Reference table for medal names (Đồng/Bạc/Vàng/Kim cương).
+model Medal {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  levels       Level[]
+  certificates Certificate[]
+
+  @@map("medals")
+}
+
+// Reference table for the tier styling used to award a medal based on a lesson's
+// position (order) within its subject — mirrors the old LEVELS config constant.
+model Level {
+  id      Int     @id
+  name    String
+  color   String
+  grad    String
+  medalId Int?
+
+  medal Medal? @relation(fields: [medalId], references: [id])
+
+  @@map("levels")
+}
+
+model Lesson {
+  id       String @id @default(cuid())
+  subject  String
+  grade    Int
+  order    Int
+  title    String
+  desc     String
+  driveLink String
+
+  contentHidden    Boolean   @default(false)
+  contentVisibleAt DateTime?
+  quizHidden       Boolean   @default(false)
+  quizVisibleAt    DateTime?
+
+  questions   Question[]
+  attempts    Attempt[]
+  certificates Certificate[]
+
+  @@unique([subject, grade, order])
+  @@map("lessons")
+}
+
+model Question {
+  id            String       @id @default(cuid())
+  subject       String
+  grade         Int
+  lessonId      String
+  level         Int
+  type          QuestionType
+  content       String
+  options       String[]
+  correct       Int?
+  sampleAnswer  String?
+  keywords      String[]
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("questions")
+}
+
+model Post {
+  id        String     @id @default(cuid())
+  authorId  String
+  title     String
+  content   String
+  status    PostStatus @default(pending)
+  kind      PostKind   @default(community)
+  createdAt DateTime   @default(now())
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("posts")
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  teacherId  String
+  subject    String
+  grade      Int
+  title      String
+  content    String
+  driveFileId String?
+  uploadedAt DateTime @default(now())
+
+  teacher User @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model Attempt {
+  id       String   @id @default(cuid())
+  userId   String
+  subject  String
+  grade    Int
+  lessonId String
+  level    Int
+  score    Float
+  total    Int
+  passed   Boolean
+  date     DateTime @default(now())
+  details  Json
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("attempts")
+}
+
+model Certificate {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  grade       Int
+  lessonId    String
+  lessonTitle String
+  medalId     Int?
+  date        DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  medal  Medal? @relation(fields: [medalId], references: [id])
+
+  @@map("certificates")
+}
