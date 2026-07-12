@@ -13,13 +13,17 @@ interface StudentHomeProps {
 }
 
 export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject }: StudentHomeProps) {
-  const [openSubject, setOpenSubject] = useState<string | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<string>("Toán");
 
   const getMySubjectLessons = (subject: string) => {
     return lessons
       .filter(l => l.subject === subject && l.grade === user.grade)
       .sort((a, b) => a.order - b.order);
   };
+
+  const activeLessons = getMySubjectLessons(selectedSubject);
+  const activeColor = SUBJECT_COLOR[selectedSubject] || { bg: "bg-slate-50", text: "text-slate-700", ring: "ring-slate-200", solid: "bg-slate-600" };
+  const activePassedMax = highestPassedLevel(attempts, user.id, selectedSubject, user.grade || 6);
 
   return (
     <div className="animate-fadeUp">
@@ -29,100 +33,156 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
             Chào {user.name.split(" ").pop()}! 👋
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Chương trình học Khối {user.grade} — 4 môn học, đầy đủ tài liệu từ Google Drive.
+            Hệ thống học tập Khối {user.grade} — Chọn môn học bên dưới để xem bài học và ôn tập.
           </p>
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-5">
-        {SUBJECTS.map(subject => {
-          const c = SUBJECT_COLOR[subject] || { bg: "bg-slate-50", text: "text-slate-700", ring: "ring-slate-200", solid: "bg-slate-600" };
-          const ls = getMySubjectLessons(subject);
-          const passedMax = highestPassedLevel(attempts, user.id, subject, user.grade || 6);
-          const isOpen = openSubject === subject;
+      <div className="grid lg:grid-cols-3 gap-6 items-start">
+        {/* BẢNG CHỌN CÁC MÔN RIÊNG BIỆT (Left sidebar, Col span 1) */}
+        <div className="space-y-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
+            Bảng chọn môn học
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-3">
+            {SUBJECTS.map(subject => {
+              const c = SUBJECT_COLOR[subject] || { bg: "bg-slate-50", text: "text-slate-700", ring: "ring-slate-200", solid: "bg-slate-600" };
+              const ls = getMySubjectLessons(subject);
+              const passedMax = highestPassedLevel(attempts, user.id, subject, user.grade || 6);
+              const isSelected = selectedSubject === subject;
 
-          return (
-            <Card key={subject} className="p-5 animate-fadeUp flex flex-col justify-between">
-              <div>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-xl ${c.solid} text-white flex items-center justify-center shrink-0`}>
-                      <BookOpen size={20} />
+              return (
+                <button
+                  key={subject}
+                  onClick={() => setSelectedSubject(subject)}
+                  className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 flex items-center justify-between gap-4 ${
+                    isSelected 
+                      ? "border-emerald-500 bg-emerald-50/30 shadow-xs ring-1 ring-emerald-500/30" 
+                      : "border-slate-200 hover:border-slate-300 bg-white hover:shadow-xs"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl ${isSelected ? c.solid + " text-white" : "bg-slate-100 text-slate-500"} flex items-center justify-center shrink-0 transition-colors`}>
+                      <BookOpen size={18} />
                     </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800">{subject}</h3>
-                      <p className="text-xs text-slate-400">
-                        {ls.length} bài học · Khối {user.grade}
+                    <div className="min-w-0">
+                      <p className={`font-bold text-sm ${isSelected ? "text-slate-800" : "text-slate-700"}`}>
+                        {subject}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {ls.length} tài liệu · Khối {user.grade}
                       </p>
                     </div>
                   </div>
-                  <Badge tone={passedMax > 0 ? 'green' : 'slate'}>
-                    {passedMax > 0 
-                      ? (LEVELS.find(l => l.id === passedMax)?.name + " (đã đạt)") 
-                      : "Chưa bắt đầu"
-                    }
-                  </Badge>
-                </div>
-
-                <button 
-                  onClick={() => setOpenSubject(isOpen ? null : subject)} 
-                  className="mt-4 text-sm font-semibold text-emerald-600 flex items-center gap-1 hover:text-emerald-700"
-                >
-                  {isOpen ? "Ẩn danh sách bài học" : "Xem danh sách bài học"}
-                  {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                </button>
-
-                {isOpen && (
-                  <div className="mt-3 space-y-2 animate-fadeUp">
-                    {ls.map(l => (
-                      <div key={l.id} className={`flex items-center justify-between gap-2 p-3 rounded-xl ${c.bg}`}>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-700 truncate">{l.title}</p>
-                          <p className="text-xs text-slate-400 truncate">{l.desc}</p>
-                        </div>
-                        <a 
-                          href={l.driveLink} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className={`shrink-0 inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg bg-white ${c.text} shadow-sm border border-slate-100 hover:bg-slate-50`}
-                        >
-                          <ExternalLink size={13} /> Drive
-                        </a>
-                      </div>
-                    ))}
-                    {ls.length === 0 && (
-                      <p className="text-xs text-slate-400 italic">Chưa có bài học nào được tải lên.</p>
-                    )}
+                  
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <Badge tone={passedMax > 0 ? 'green' : 'slate'}>
+                      {passedMax > 0 
+                        ? (LEVELS.find(l => l.id === passedMax)?.name) 
+                        : "Chưa đạt"
+                      }
+                    </Badge>
                   </div>
-                )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* CHI TIẾT MÔN HỌC ĐÃ CHỌN (Right section, Col span 2) */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+              <div className="flex items-center gap-3.5">
+                <div className={`w-12 h-12 rounded-2xl ${activeColor.solid} text-white flex items-center justify-center shrink-0 shadow-xs`}>
+                  <BookOpen size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-extrabold text-slate-800">{selectedSubject}</h2>
+                    <Badge tone="green">Khối {user.grade}</Badge>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Cấp độ đạt được: <span className="font-bold text-emerald-600">{activePassedMax > 0 ? LEVELS.find(l => l.id === activePassedMax)?.name : "Chưa có"}</span>
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <Button 
+                size="md" 
+                icon={<HelpCircle size={15} />}
+                onClick={() => { 
+                  setActiveSubject(selectedSubject); 
+                  setPage("quiz"); 
+                }}
+              >
+                Vào ôn tập & kiểm tra
+              </Button>
+            </div>
+
+            <div className="grid md:grid-cols-5 gap-6 mt-6">
+              {/* Left Column: Lesson Resource Documents */}
+              <div className="md:col-span-3 space-y-3">
+                <h3 className="font-bold text-slate-700 text-sm flex items-center gap-1.5 mb-2">
+                  <span>Bài học & Tài liệu chuẩn</span>
+                  <span className="text-xs font-normal text-slate-400">({activeLessons.length} bài)</span>
+                </h3>
+
+                <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                  {activeLessons.map((l, i) => (
+                    <div key={l.id} className="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50/80 transition-colors">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-700 truncate">
+                          {i + 1}. {l.title}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate mt-0.5">{l.desc}</p>
+                      </div>
+                      <a 
+                        href={l.driveLink} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className={`shrink-0 inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-white ${activeColor.text} shadow-xs border border-slate-150 hover:bg-slate-100 transition-colors`}
+                      >
+                        <ExternalLink size={12} /> Drive
+                      </a>
+                    </div>
+                  ))}
+                  {activeLessons.length === 0 && (
+                    <p className="text-xs text-slate-400 italic py-6 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                      Chưa có bài học nào được đăng cho môn học này.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Level Ladder */}
+              <div className="md:col-span-2 flex flex-col justify-between p-4 bg-slate-50/30 rounded-2xl border border-slate-100 h-full">
+                <div>
+                  <h3 className="font-bold text-slate-700 text-sm mb-1">
+                    Chinh phục cấp độ
+                  </h3>
+                  <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                    Đạt từ 8.0 điểm trở lên trong bài kiểm tra để thăng tiến cấp độ tiếp theo.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-center py-2">
                   <LevelLadder 
-                    subject={subject} 
+                    subject={selectedSubject} 
                     grade={user.grade || 6} 
                     attempts={attempts} 
                     userId={user.id} 
-                    compact 
+                    compact={false}
                   />
                 </div>
-                
-                <Button 
-                  size="sm" 
-                  className="w-full justify-center mt-4" 
-                  icon={<HelpCircle size={14} />}
-                  onClick={() => { 
-                    setActiveSubject(subject); 
-                    setPage("quiz"); 
-                  }}
-                >
-                  Vào ôn tập & kiểm tra
-                </Button>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 leading-normal">
+                  Chinh phục hết 5 cấp độ để đạt danh hiệu <span className="font-semibold text-emerald-600">Chuyên gia</span> môn {selectedSubject}!
+                </div>
               </div>
-            </Card>
-          );
-        })}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
