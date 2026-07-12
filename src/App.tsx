@@ -355,12 +355,8 @@ export default function App() {
     <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 font-sans">
       {/* Sidebar for Desktop */}
       <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 border-r border-slate-200 bg-white sticky top-0 h-screen shadow-xs">
-        <div className="px-2 py-6 flex flex-col items-center gap-2 border-b border-slate-100 text-center">
+        <div className="px-2 py-6 flex flex-col items-center border-b border-slate-100 text-center">
           <AnTamLogo size={225} />
-          <div className="mt-1">
-            <div className="font-extrabold text-base text-emerald-800 tracking-tight leading-none">AN TÂM</div>
-            <div className="font-bold text-[8px] text-amber-600 tracking-[0.25em] mt-1.5 leading-none uppercase">EDUCATION</div>
-          </div>
         </div>
         
         <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
@@ -402,10 +398,6 @@ export default function App() {
       <div className="lg:hidden fixed top-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <AnTamLogo size={108} />
-          <div>
-            <div className="font-extrabold text-xs text-emerald-800 leading-none">AN TÂM</div>
-            <div className="font-bold text-[7px] text-amber-600 tracking-widest mt-0.5 leading-none uppercase">EDUCATION</div>
-          </div>
         </div>
         <button
           onClick={() => setMobileNav(v => !v)}

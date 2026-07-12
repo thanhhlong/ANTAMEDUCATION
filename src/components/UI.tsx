@@ -12,114 +12,19 @@ import {
 } from 'lucide-react';
 import { Attempt, User, Lesson } from '../types';
 import { LEVELS, SUBJECTS, MAX_SUB_LEVEL } from '../data/seedData';
+import logoUrl from '../assets/logo.png';
 
-export function AnTamLogo({ className = "", size = 48, withText = false }: { className?: string; size?: number; withText?: boolean }) {
+// Official AN TÂM EDUCATION brand mark (icon + wordmark baked into one image).
+export function AnTamLogo({ className = "", size = 48 }: { className?: string; size?: number }) {
   return (
-    <svg 
-      viewBox="0 0 200 200" 
-      width={size} 
-      height={size} 
+    <img
+      src={logoUrl}
+      alt="AN TÂM EDUCATION"
+      width={size}
+      height={size}
       className={className}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* 3 Gold Stars at the top */}
-      {/* Middle star (large) */}
-      <path d="M100 12 L105 24 L118 24 L108 32 L112 44 L100 36 L88 44 L92 32 L82 24 L95 24 Z" fill="#e29c00" />
-      {/* Left star (small) */}
-      <path d="M72 23 L75 30 L83 30 L76 35 L79 42 L72 38 L65 42 L68 35 L61 30 L69 30 Z" fill="#e29c00" />
-      {/* Right star (small) */}
-      <path d="M128 23 L131 30 L139 30 L132 35 L135 42 L128 38 L121 42 L124 35 L117 30 L125 30 Z" fill="#e29c00" />
-
-      {/* Human/Center Book Spine (Dark Green) */}
-      {/* Head */}
-      <circle cx="100" cy="54" r="10" fill="#004D25" />
-      
-      {/* Arms/Body (raising up) */}
-      <path 
-        d="M100 68 
-           C112 68, 128 59, 142 54 
-           C134 66, 118 84, 104 105 
-           C102 108, 98 108, 96 105 
-           C82 84, 66 66, 58 54 
-           C72 59, 88 68, 100 68 Z" 
-        fill="#004D25" 
-      />
-
-      {/* Inner pages (Gold) */}
-      {/* Left gold wing */}
-      <path 
-        d="M58 45 
-           L64 45 
-           C64 45, 56 77, 92 93 
-           C96 95, 96 98, 92 99 
-           C66 99, 44 85, 44 85 
-           C44 85, 53 59, 58 45 Z" 
-        fill="#e29c00" 
-      />
-      {/* Right gold wing */}
-      <path 
-        d="M142 45 
-           L136 45 
-           C136 45, 144 77, 108 93 
-           C104 95, 104 98, 108 99 
-           C134 99, 156 85, 156 85 
-           C156 85, 147 59, 142 45 Z" 
-        fill="#e29c00" 
-      />
-
-      {/* Outer book lines (Dark Green) */}
-      {/* Left green wing */}
-      <path 
-        d="M40 52 
-           L47 52 
-           C47 52, 40 79, 83 97 
-           L83 103 
-           C37 98, 40 52, 40 52 Z" 
-        fill="#004D25" 
-      />
-      {/* Right green wing */}
-      <path 
-        d="M160 52 
-           L153 52 
-           C153 52, 160 79, 117 97 
-           L117 103 
-           C163 98, 160 52, 160 52 Z" 
-        fill="#004D25" 
-      />
-
-      {/* Text labels if requested */}
-      {withText && (
-        <>
-          <text 
-            x="100" 
-            y="136" 
-            textAnchor="middle" 
-            fill="#004D25" 
-            fontWeight="900" 
-            fontSize="26" 
-            fontFamily="inherit" 
-            letterSpacing="0.05em"
-          >
-            AN TÂM
-          </text>
-          <text 
-            x="100" 
-            y="163" 
-            textAnchor="middle" 
-            fill="#e29c00" 
-            fontWeight="800" 
-            fontSize="18" 
-            fontFamily="inherit" 
-            letterSpacing="0.18em"
-          >
-            EDUCATION
-          </text>
-          {/* Underline bar */}
-          <line x1="75" y1="178" x2="125" y2="178" stroke="#004D25" strokeWidth="5" strokeLinecap="round" />
-        </>
-      )}
-    </svg>
+      style={{ width: size, height: "auto" }}
+    />
   );
 }
 
