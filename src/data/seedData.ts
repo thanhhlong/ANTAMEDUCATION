@@ -156,7 +156,7 @@ function essayQ(subject: string, grade: number, level: number, seedIdx: number) 
   };
 }
 
-export function generateQuestionsFor(subject: string, grade: number, level: number): Question[] {
+export function generateQuestionsFor(subject: string, grade: number, lessonId: string, varietySeed: number): Question[] {
   const gens: Record<string, (g: number, l: number, s: number) => { content: string; options: string[]; correct: number }> = {
     "Toán": mcqMath, "Tiếng Anh": mcqEnglish, "Văn": mcqLit, "KHTN": mcqScience
   };
@@ -164,12 +164,12 @@ export function generateQuestionsFor(subject: string, grade: number, level: numb
   const qs: Question[] = [];
 
   for (let i = 0; i < 6; i++) {
-    const m = mk(grade, level, i);
+    const m = mk(grade, varietySeed, i);
     qs.push({
       id: nid("q"),
       subject,
       grade,
-      level,
+      lessonId,
       type: "mcq",
       content: m.content,
       options: m.options,
@@ -178,12 +178,12 @@ export function generateQuestionsFor(subject: string, grade: number, level: numb
   }
 
   for (let i = 0; i < 2; i++) {
-    const s = shortQ(subject, grade, level, i);
+    const s = shortQ(subject, grade, varietySeed, i);
     qs.push({
       id: nid("q"),
       subject,
       grade,
-      level,
+      lessonId,
       type: "short",
       content: s.content,
       sampleAnswer: s.sampleAnswer
@@ -191,12 +191,12 @@ export function generateQuestionsFor(subject: string, grade: number, level: numb
   }
 
   for (let i = 0; i < 2; i++) {
-    const e = essayQ(subject, grade, level, i);
+    const e = essayQ(subject, grade, varietySeed, i);
     qs.push({
       id: nid("q"),
       subject,
       grade,
-      level,
+      lessonId,
       type: "essay",
       content: e.content,
       keywords: e.keywords
@@ -206,14 +206,10 @@ export function generateQuestionsFor(subject: string, grade: number, level: numb
   return qs;
 }
 
-export function generateAllQuestions(): Question[] {
+export function generateAllQuestions(lessons: Lesson[]): Question[] {
   const out: Question[] = [];
-  SUBJECTS.forEach(subject => {
-    GRADES.forEach(grade => {
-      LEVELS.forEach(lv => {
-        out.push(...generateQuestionsFor(subject, grade, lv.id));
-      });
-    });
+  lessons.forEach(lesson => {
+    out.push(...generateQuestionsFor(lesson.subject, lesson.grade, lesson.id, lesson.order));
   });
   return out;
 }

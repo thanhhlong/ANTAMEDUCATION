@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { User, Question, Lesson, Post, Attempt } from '../types';
-import { Card, Badge, Button, Input, Select, Textarea, Modal, EmptyState, Avatar, MedalDot, bestAttemptsByLevel, userTotalPoints, computeLeaderboard } from './UI';
-import { SUBJECTS, GRADES, SUBJECT_COLOR, LEVELS, nid, norm, todayStr } from '../data/seedData';
+import { Card, Badge, Button, Input, Select, Textarea, Modal, EmptyState, Avatar, MedalDot, userTotalPoints, computeLeaderboard, orderedLessons, VisibilityToolbar } from './UI';
+import { SUBJECTS, GRADES, SUBJECT_COLOR, nid, norm, todayStr } from '../data/seedData';
 
 // --- OVERVIEW PANEL ---
 interface AdminOverviewProps {
@@ -45,7 +45,7 @@ export function AdminOverview({ users, questions, posts, attempts, lessons, setP
     { label: "Lượt kiểm tra đã thực hiện", value: attempts.length, icon: <TrendingUp size={19} />, tone: "bg-emerald-50 text-emerald-600", go: "ranking" },
   ];
 
-  const board = computeLeaderboard(users, attempts).slice(0, 5);
+  const board = computeLeaderboard(users, attempts, lessons).slice(0, 5);
 
   return (
     <div className="animate-fadeUp">
@@ -403,36 +403,40 @@ interface QuestionFormModalProps {
   onClose: () => void;
   onSave: (payload: any) => void;
   editing: Question | null;
+  lessons: Lesson[];
   defaultSubject: string;
   defaultGrade: number;
-  defaultLevel: number;
+  defaultLessonId: string;
 }
 
-export function QuestionFormModal({ 
-  open, 
-  onClose, 
-  onSave, 
-  editing, 
-  defaultSubject, 
-  defaultGrade, 
-  defaultLevel 
+export function QuestionFormModal({
+  open,
+  onClose,
+  onSave,
+  editing,
+  lessons,
+  defaultSubject,
+  defaultGrade,
+  defaultLessonId
 }: QuestionFormModalProps) {
   const [type, setType] = useState<'mcq' | 'short' | 'essay'>('mcq');
   const [subject, setSubject] = useState(defaultSubject);
   const [grade, setGrade] = useState(defaultGrade);
-  const [level, setLevel] = useState(defaultLevel);
+  const [lessonId, setLessonId] = useState(defaultLessonId);
   const [content, setContent] = useState('');
   const [options, setOptions] = useState<string[]>(["", "", "", ""]);
   const [correct, setCorrect] = useState(0);
   const [sampleAnswer, setSampleAnswer] = useState('');
   const [keywords, setKeywords] = useState('');
 
+  const lessonOptions = orderedLessons(lessons, subject, grade);
+
   useEffect(() => {
     if (editing) {
       setType(editing.type);
       setSubject(editing.subject);
       setGrade(editing.grade);
-      setLevel(editing.level);
+      setLessonId(editing.lessonId);
       setContent(editing.content);
       setOptions(editing.type === 'mcq' && editing.options ? editing.options : ["", "", "", ""]);
       setCorrect(editing.type === 'mcq' && editing.correct !== undefined ? editing.correct : 0);
@@ -442,27 +446,34 @@ export function QuestionFormModal({
       setType('mcq');
       setSubject(defaultSubject);
       setGrade(defaultGrade);
-      setLevel(defaultLevel);
+      setLessonId(defaultLessonId);
       setContent('');
       setOptions(["", "", "", ""]);
       setCorrect(0);
       setSampleAnswer('');
       setKeywords('');
     }
-  }, [editing, open, defaultSubject, defaultGrade, defaultLevel]);
+  }, [editing, open, defaultSubject, defaultGrade, defaultLessonId]);
+
+  // Keep lessonId valid whenever subject/grade changes away from the editing lesson's scope
+  useEffect(() => {
+    if (!lessonOptions.some(l => l.id === lessonId)) {
+      setLessonId(lessonOptions[0]?.id || '');
+    }
+  }, [subject, grade]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setOptionIndexValue = (idx: number, val: string) => {
     setOptions(prev => prev.map((o, i) => i === idx ? val : o));
   };
 
   const save = () => {
-    if (!content.trim()) return;
-    let payload: any = { 
-      subject, 
-      grade: Number(grade), 
-      level: Number(level), 
-      type, 
-      content: content.trim() 
+    if (!content.trim() || !lessonId) return;
+    let payload: any = {
+      subject,
+      grade: Number(grade),
+      lessonId,
+      type,
+      content: content.trim()
     };
     if (type === 'mcq') payload = { ...payload, options, correct: Number(correct) };
     if (type === 'short') payload = { ...payload, sampleAnswer: sampleAnswer.trim() };
@@ -477,12 +488,12 @@ export function QuestionFormModal({
           <span className="block text-sm font-medium text-slate-600 mb-1.5">Loại câu hỏi *</span>
           <div className="grid grid-cols-3 gap-2">
             {(['mcq', 'short', 'essay'] as const).map(t => (
-              <button 
-                key={t} 
+              <button
+                key={t}
                 onClick={() => setType(t)}
                 className={`px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
-                  type === t 
-                    ? "border-emerald-500 bg-emerald-50/50 text-emerald-700" 
+                  type === t
+                    ? "border-emerald-500 bg-emerald-50/50 text-emerald-700"
                     : "border-slate-200 text-slate-500 bg-white"
                 }`}
               >
@@ -491,7 +502,7 @@ export function QuestionFormModal({
             ))}
           </div>
         </div>
-        
+
         <div className="grid grid-cols-3 gap-3">
           <Select label="Môn học" value={subject} onChange={e => setSubject(e.target.value)}>
             {SUBJECTS.map(s => <option key={s}>{s}</option>)}
@@ -499,11 +510,12 @@ export function QuestionFormModal({
           <Select label="Khối lớp" value={grade} onChange={e => setGrade(Number(e.target.value))}>
             {GRADES.map(g => <option key={g} value={g}>Khối {g}</option>)}
           </Select>
-          <Select label="Cấp độ" value={level} onChange={e => setLevel(Number(e.target.value))}>
-            {LEVELS.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+          <Select label="Bài học" value={lessonId} onChange={e => setLessonId(e.target.value)}>
+            {lessonOptions.length === 0 && <option value="">Chưa có bài học</option>}
+            {lessonOptions.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
           </Select>
         </div>
-        
+
         <Textarea 
           label="Nội dung câu hỏi *" 
           rows={3} 
@@ -557,7 +569,7 @@ export function QuestionFormModal({
           />
         )}
         
-        <Button className="w-full justify-center" onClick={save} disabled={!content.trim()}>
+        <Button className="w-full justify-center" onClick={save} disabled={!content.trim() || !lessonId}>
           Lưu câu hỏi
         </Button>
       </div>
@@ -568,23 +580,38 @@ export function QuestionFormModal({
 interface AdminQuestionsProps {
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  lessons: Lesson[];
+  setLessons: React.Dispatch<React.SetStateAction<Lesson[]>>;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-export function AdminQuestions({ questions, setQuestions, showToast }: AdminQuestionsProps) {
+export function AdminQuestions({ questions, setQuestions, lessons, setLessons, showToast }: AdminQuestionsProps) {
   const [subject, setSubject] = useState(SUBJECTS[0]);
   const [grade, setGrade] = useState(GRADES[0]);
-  const [level, setLevel] = useState(1);
   const [typeFilter, setTypeFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Question | null>(null);
 
+  const subjectGradeLessons = orderedLessons(lessons, subject, grade);
+  const [lessonId, setLessonId] = useState<string>('');
+
+  useEffect(() => {
+    if (!subjectGradeLessons.some(l => l.id === lessonId)) {
+      setLessonId(subjectGradeLessons[0]?.id || '');
+    }
+  }, [subject, grade, lessons]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const currentLesson = lessons.find(l => l.id === lessonId) || null;
+
   const list = questions.filter(q => {
-    return q.subject === subject && 
-           q.grade === grade && 
-           q.level === level && 
+    return q.lessonId === lessonId &&
            (typeFilter === 'all' || q.type === typeFilter);
   });
+
+  const setLessonQuizVisibility = (patch: Partial<Lesson>) => {
+    if (!currentLesson) return;
+    setLessons(prev => prev.map(l => l.id === currentLesson.id ? { ...l, ...patch } : l));
+  };
 
   const saveQ = (payload: any) => {
     if (editing) {
@@ -609,7 +636,7 @@ export function AdminQuestions({ questions, setQuestions, showToast }: AdminQues
         <div>
           <h1 className="text-2xl font-extrabold text-slate-800">Ngân hàng câu hỏi</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Quản lý ngân hàng câu hỏi phân cấp theo môn học, lớp, cấp độ và dạng câu hỏi.
+            Quản lý ngân hàng câu hỏi phân theo môn học, khối lớp, bài học và dạng câu hỏi.
           </p>
         </div>
         <Button icon={<Plus size={14} />} onClick={() => { setEditing(null); setModalOpen(true); }}>
@@ -624,8 +651,9 @@ export function AdminQuestions({ questions, setQuestions, showToast }: AdminQues
         <Select value={grade} onChange={e => setGrade(Number(e.target.value))} className="w-32 !py-2.5">
           {GRADES.map(g => <option key={g} value={g}>Khối {g}</option>)}
         </Select>
-        <Select value={level} onChange={e => setLevel(Number(e.target.value))} className="w-44 !py-2.5">
-          {LEVELS.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+        <Select value={lessonId} onChange={e => setLessonId(e.target.value)} className="w-64 !py-2.5">
+          {subjectGradeLessons.length === 0 && <option value="">Chưa có bài học</option>}
+          {subjectGradeLessons.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
         </Select>
         <Select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="w-48 !py-2.5">
           <option value="all">Tất cả loại câu hỏi</option>
@@ -633,6 +661,19 @@ export function AdminQuestions({ questions, setQuestions, showToast }: AdminQues
         </Select>
         <Badge tone="slate">{list.length} câu hỏi</Badge>
       </div>
+
+      {currentLesson && (
+        <Card className="p-4 mb-5">
+          <VisibilityToolbar
+            label="Bài kiểm tra"
+            hidden={currentLesson.quizHidden}
+            visibleAt={currentLesson.quizVisibleAt}
+            onHide={() => setLessonQuizVisibility({ quizHidden: true, quizVisibleAt: undefined })}
+            onShow={() => setLessonQuizVisibility({ quizHidden: false, quizVisibleAt: undefined })}
+            onSchedule={(iso) => setLessonQuizVisibility({ quizHidden: true, quizVisibleAt: iso })}
+          />
+        </Card>
+      )}
 
       <div className="space-y-3">
         {list.map((q, i) => (
@@ -705,14 +746,15 @@ export function AdminQuestions({ questions, setQuestions, showToast }: AdminQues
         )}
       </div>
 
-      <QuestionFormModal 
-        open={modalOpen} 
-        onClose={() => { setModalOpen(false); setEditing(null); }} 
-        onSave={saveQ} 
+      <QuestionFormModal
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditing(null); }}
+        onSave={saveQ}
         editing={editing}
-        defaultSubject={subject} 
-        defaultGrade={grade} 
-        defaultLevel={level} 
+        lessons={lessons}
+        defaultSubject={subject}
+        defaultGrade={grade}
+        defaultLessonId={lessonId}
       />
     </div>
   );
@@ -821,6 +863,10 @@ export function AdminLessons({ lessons, setLessons, showToast }: AdminLessonsPro
     showToast("Đã xoá bài học.");
   };
 
+  const setContentVisibility = (id: string, patch: Partial<Lesson>) => {
+    setLessons(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l));
+  };
+
   return (
     <div className="animate-fadeUp">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -847,36 +893,47 @@ export function AdminLessons({ lessons, setLessons, showToast }: AdminLessonsPro
 
       <Card className="divide-y divide-slate-100 bg-white">
         {list.map(l => (
-          <div key={l.id} className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/30 transition-colors">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-800">{l.title}</p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">{l.desc}</p>
-              <a 
-                href={l.driveLink} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="text-xs text-emerald-600 flex items-center gap-1 mt-1.5 hover:underline font-medium"
-              >
-                Link Drive: {l.driveLink}
-              </a>
+          <div key={l.id} className="p-4 flex flex-col gap-3 hover:bg-slate-50/30 transition-colors">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800">{l.title}</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">{l.desc}</p>
+                <a
+                  href={l.driveLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-emerald-600 flex items-center gap-1 mt-1.5 hover:underline font-medium"
+                >
+                  Link Drive: {l.driveLink}
+                </a>
+              </div>
+
+              <div className="flex gap-1 shrink-0">
+                <button
+                  onClick={() => { setEditing(l); setModalOpen(true); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+                  title="Sửa"
+                >
+                  <Edit size={15} />
+                </button>
+                <button
+                  onClick={() => removeLesson(l.id)}
+                  className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
+                  title="Xoá"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
-            
-            <div className="flex gap-1 shrink-0">
-              <button 
-                onClick={() => { setEditing(l); setModalOpen(true); }} 
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
-                title="Sửa"
-              >
-                <Edit size={15} />
-              </button>
-              <button 
-                onClick={() => removeLesson(l.id)} 
-                className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
-                title="Xoá"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
+
+            <VisibilityToolbar
+              label="Nội dung bài học"
+              hidden={l.contentHidden}
+              visibleAt={l.contentVisibleAt}
+              onHide={() => setContentVisibility(l.id, { contentHidden: true, contentVisibleAt: undefined })}
+              onShow={() => setContentVisibility(l.id, { contentHidden: false, contentVisibleAt: undefined })}
+              onSchedule={(iso) => setContentVisibility(l.id, { contentHidden: true, contentVisibleAt: iso })}
+            />
           </div>
         ))}
         {list.length === 0 && (

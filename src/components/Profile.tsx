@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Award, FileText, Printer, Clock, BookOpen, GraduationCap } from 'lucide-react';
-import { User, Attempt, Certificate } from '../types';
-import { Card, Badge, LevelLadder, MedalDot, Button, EmptyState, Modal, userTotalPoints, userMedals } from './UI';
-import { SUBJECTS, LEVELS } from '../data/seedData';
+import { User, Attempt, Certificate, Lesson } from '../types';
+import { Card, Badge, LevelLadder, MedalDot, Button, EmptyState, Modal, userTotalPoints, userMedals, highestPassedLessonOrder } from './UI';
+import { SUBJECTS } from '../data/seedData';
 
 interface CertificateViewProps {
   user: User;
@@ -10,8 +10,6 @@ interface CertificateViewProps {
 }
 
 export function CertificateView({ user, cert }: CertificateViewProps) {
-  const lv = LEVELS.find(l => l.id === cert.level) || LEVELS[0];
-  
   return (
     <div 
       id="certificate-print" 
@@ -33,11 +31,11 @@ export function CertificateView({ user, cert }: CertificateViewProps) {
       <p className="text-2xl font-bold text-slate-800 mb-3">{user.name}</p>
       
       <p className="text-slate-600 text-sm max-w-md mx-auto leading-relaxed px-4">
-        Đã hoàn thành xuất sắc cấp độ <b>{lv.name}</b> môn <b>{cert.subject}</b> (Khối {cert.grade}) và đạt huy chương <b>{lv.medal || "—"}</b>.
+        Đã hoàn thành xuất sắc <b>{cert.lessonTitle}</b> môn <b>{cert.subject}</b> (Khối {cert.grade}){cert.medal ? <> và đạt huy chương <b>{cert.medal}</b></> : null}.
       </p>
-      
+
       <div className="flex justify-center my-6">
-        <MedalDot medal={lv.medal} />
+        <MedalDot medal={cert.medal} />
       </div>
       
       <p className="text-xs text-slate-400">
@@ -61,16 +59,17 @@ interface ProfilePageProps {
   user: User;
   attempts: Attempt[];
   certificates: Certificate[];
+  lessons: Lesson[];
 }
 
-export function ProfilePage({ user, attempts, certificates }: ProfilePageProps) {
+export function ProfilePage({ user, attempts, certificates, lessons }: ProfilePageProps) {
   const myAttempts = attempts
     .filter(a => a.userId === user.id)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
+
   const myCerts = certificates.filter(c => c.userId === user.id);
   const totalPoints = userTotalPoints(attempts, user.id);
-  const medals = userMedals(attempts, user.id, user.grade || 6);
+  const medals = userMedals(attempts, lessons, user.id, user.grade || 6);
   const [certModal, setCertModal] = useState<Certificate | null>(null);
 
   const printCertificate = () => {
@@ -112,26 +111,27 @@ export function ProfilePage({ user, attempts, certificates }: ProfilePageProps) 
         <h3 className="font-bold text-slate-800 text-lg mb-4">Tiến trình theo môn học</h3>
         <div className="grid sm:grid-cols-2 gap-6">
           {SUBJECTS.map(subject => {
-            const currentLevel = attempts.filter(a => a.userId === user.id && a.subject === subject && a.passed).length;
-            
+            const passedMax = highestPassedLessonOrder(attempts, lessons, user.id, subject, user.grade || 6);
+
             return (
               <div key={subject} className="flex flex-col justify-between">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-sm text-slate-700">{subject}</span>
-                  <Badge tone={currentLevel > 0 ? "blue" : "slate"}>
-                    {currentLevel > 0 
-                      ? (LEVELS.find(l => l.id === currentLevel)?.name + " (đã đạt)") 
+                  <Badge tone={passedMax > 0 ? "blue" : "slate"}>
+                    {passedMax > 0
+                      ? `Đã qua bài ${passedMax}`
                       : "Chưa bắt đầu"
                     }
                   </Badge>
                 </div>
-                
-                <LevelLadder 
-                  subject={subject} 
-                  grade={user.grade || 6} 
-                  attempts={attempts} 
-                  userId={user.id} 
-                  compact 
+
+                <LevelLadder
+                  subject={subject}
+                  grade={user.grade || 6}
+                  lessons={lessons}
+                  attempts={attempts}
+                  userId={user.id}
+                  compact
                 />
               </div>
             );
@@ -152,7 +152,7 @@ export function ProfilePage({ user, attempts, certificates }: ProfilePageProps) 
               <div key={a.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/50 transition-colors">
                 <div>
                   <p className="text-sm font-semibold text-slate-700">
-                    {a.subject} · {LEVELS.find(l => l.id === a.level)?.name}
+                    {a.subject} · {lessons.find(l => l.id === a.lessonId)?.title || "—"}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {new Date(a.date).toLocaleDateString("vi-VN")} {new Date(a.date).toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'})}
@@ -177,23 +177,19 @@ export function ProfilePage({ user, attempts, certificates }: ProfilePageProps) 
           </h3>
           
           <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
-            {myCerts.map(c => {
-              const lv = LEVELS.find(l => l.id === c.level) || LEVELS[0];
-              
-              return (
-                <button 
-                  key={c.id} 
-                  onClick={() => setCertModal(c)} 
-                  className="p-3.5 rounded-xl border border-slate-100 hover:border-emerald-400 text-left transition-all duration-150 hover:shadow-xs group bg-white"
-                >
-                  <Award size={22} className="text-emerald-600 mb-1.5 group-hover:scale-105 transition-transform" />
-                  <p className="text-xs font-bold text-slate-700 leading-snug">{c.subject} · {lv.name}</p>
-                  <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                    {new Date(c.date).toLocaleDateString("vi-VN")}
-                  </p>
-                </button>
-              );
-            })}
+            {myCerts.map(c => (
+              <button
+                key={c.id}
+                onClick={() => setCertModal(c)}
+                className="p-3.5 rounded-xl border border-slate-100 hover:border-emerald-400 text-left transition-all duration-150 hover:shadow-xs group bg-white"
+              >
+                <Award size={22} className="text-emerald-600 mb-1.5 group-hover:scale-105 transition-transform" />
+                <p className="text-xs font-bold text-slate-700 leading-snug">{c.subject} · {c.lessonTitle}</p>
+                <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                  {new Date(c.date).toLocaleDateString("vi-VN")}
+                </p>
+              </button>
+            ))}
             
             {myCerts.length === 0 && (
               <div className="col-span-2">

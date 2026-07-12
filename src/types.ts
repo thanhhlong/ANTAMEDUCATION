@@ -11,7 +11,7 @@ export interface Question {
   id: string;
   subject: string;
   grade: number;
-  level: number;
+  lessonId: string;
   type: 'mcq' | 'short' | 'essay';
   content: string;
   options?: string[]; // For mcq
@@ -28,6 +28,12 @@ export interface Lesson {
   title: string;
   desc: string;
   driveLink: string;
+  // Lesson content (document/drive link) visibility
+  contentHidden?: boolean;
+  contentVisibleAt?: string; // ISO datetime; content auto-shows once this time passes
+  // Quiz (test) visibility, tied to the same lesson
+  quizHidden?: boolean;
+  quizVisibleAt?: string; // ISO datetime; quiz auto-shows once this time passes
 }
 
 export interface Post {
@@ -63,7 +69,7 @@ export interface Attempt {
   userId: string;
   subject: string;
   grade: number;
-  level: number;
+  lessonId: string;
   score: number;
   total: number;
   passed: boolean;
@@ -76,7 +82,9 @@ export interface Certificate {
   userId: string;
   subject: string;
   grade: number;
-  level: number;
+  lessonId: string;
+  lessonTitle: string;
+  medal: 'Đồng' | 'Bạc' | 'Vàng' | 'Kim cương' | null;
   date: string;
 }
 

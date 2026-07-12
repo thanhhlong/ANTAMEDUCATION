@@ -1,28 +1,29 @@
 import React, { useState, useMemo } from 'react';
 import { Trophy, Users, Shield } from 'lucide-react';
-import { User, Attempt } from '../types';
+import { User, Attempt, Lesson } from '../types';
 import { Card, Badge, Select, Avatar, MedalDot, computeLeaderboard } from './UI';
 import { GRADES } from '../data/seedData';
 
 interface RankingPageProps {
   users: User[];
   attempts: Attempt[];
+  lessons: Lesson[];
   currentUser: User | null;
 }
 
-export function RankingPage({ users, attempts, currentUser }: RankingPageProps) {
+export function RankingPage({ users, attempts, lessons, currentUser }: RankingPageProps) {
   const [gradeFilter, setGradeFilter] = useState<string>('all');
   const [limit, setLimit] = useState<number>(10);
 
   const filteredUsers = useMemo(() => {
-    return gradeFilter === 'all' 
-      ? users 
+    return gradeFilter === 'all'
+      ? users
       : users.filter(u => u.grade === Number(gradeFilter));
   }, [users, gradeFilter]);
 
   const board = useMemo(() => {
-    return computeLeaderboard(filteredUsers, attempts);
-  }, [filteredUsers, attempts]);
+    return computeLeaderboard(filteredUsers, attempts, lessons);
+  }, [filteredUsers, attempts, lessons]);
 
   const top = useMemo(() => {
     return board.slice(0, limit);
