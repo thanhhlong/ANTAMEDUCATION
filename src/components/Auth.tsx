@@ -18,9 +18,9 @@ export function AuthShell({ children, subtitle }: AuthShellProps) {
           <div className="absolute -right-10 -top-10 w-56 h-56 rounded-full bg-white/10"></div>
           <div className="absolute -left-16 bottom-0 w-72 h-72 rounded-full bg-white/10"></div>
           
-          <div className="relative z-10 flex items-center gap-2.5">
-            <div className="p-1 rounded-2xl bg-white flex items-center justify-center shadow-md">
-              <AnTamLogo size={44} />
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="p-2 rounded-2xl bg-white flex items-center justify-center shadow-md shrink-0">
+              <AnTamLogo size={132} />
             </div>
             <div>
               <span className="text-xl font-black tracking-tight leading-none block">AN TÂM</span>
@@ -92,9 +92,9 @@ export function LoginPage({ onLogin, goRegister, users }: LoginProps) {
 
   return (
     <div className="animate-fadeUp">
-      <div className="lg:hidden flex items-center gap-2.5 mb-6">
-        <AnTamLogo size={40} />
-        <div>
+      <div className="lg:hidden flex flex-col items-center gap-1 mb-6 text-center">
+        <AnTamLogo size={120} />
+        <div className="mt-1">
           <span className="text-lg font-extrabold text-slate-850 leading-none block">AN TÂM</span>
           <span className="text-[8px] font-bold text-amber-600 tracking-wider uppercase mt-0.5 block">EDUCATION</span>
         </div>
@@ -198,9 +198,9 @@ export function RegisterPage({ onRegister, goLogin, users }: RegisterProps) {
 
   return (
     <div className="animate-fadeUp">
-      <div className="lg:hidden flex items-center gap-2.5 mb-6">
-        <AnTamLogo size={40} />
-        <div>
+      <div className="lg:hidden flex flex-col items-center gap-1 mb-6 text-center">
+        <AnTamLogo size={120} />
+        <div className="mt-1">
           <span className="text-lg font-extrabold text-slate-850 leading-none block">AN TÂM</span>
           <span className="text-[8px] font-bold text-amber-600 tracking-wider uppercase mt-0.5 block">EDUCATION</span>
         </div>

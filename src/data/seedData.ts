@@ -32,8 +32,10 @@ export const SUBJECT_COLOR: Record<string, { bg: string; text: string; ring: str
   "KHTN": { bg: "bg-cyan-50", text: "text-cyan-700", ring: "ring-cyan-200", solid: "bg-cyan-600" },
 };
 
+// Timestamp prefix keeps IDs unique across page reloads now that accounts/scores persist in localStorage;
+// the counter alone would restart at 1000 every reload and collide with previously saved records.
 let __id = 1000;
-export const nid = (p = "id") => `${p}_${(__id++).toString(36)}`;
+export const nid = (p = "id") => `${p}_${Date.now().toString(36)}${(__id++).toString(36)}`;
 
 export const norm = (s = ""): string => {
   return s.toString().trim().toLowerCase().replace(/\s+/g, " ")
@@ -169,11 +171,14 @@ export function generateQuestionsFor(subject: string, grade: number, lessonId: s
   const mk = gens[subject] || mcqMath;
   const qs: Question[] = [];
   const seedBase = varietySeed * 10;
+  // Deterministic (not nid()-based) IDs: lessons/questions are regenerated fresh on every
+  // page load rather than persisted, so their IDs must stay stable across reloads for
+  // persisted Attempts/Certificates (which reference lessonId) to keep resolving correctly.
 
   for (let i = 0; i < 6; i++) {
     const m = mk(grade, level, seedBase + i);
     qs.push({
-      id: nid("q"),
+      id: `${lessonId}_L${level}_mcq${i}`,
       subject,
       grade,
       lessonId,
@@ -188,7 +193,7 @@ export function generateQuestionsFor(subject: string, grade: number, lessonId: s
   for (let i = 0; i < 2; i++) {
     const s = shortQ(subject, grade, level, seedBase + i);
     qs.push({
-      id: nid("q"),
+      id: `${lessonId}_L${level}_short${i}`,
       subject,
       grade,
       lessonId,
@@ -202,7 +207,7 @@ export function generateQuestionsFor(subject: string, grade: number, lessonId: s
   for (let i = 0; i < 2; i++) {
     const e = essayQ(subject, grade, level, seedBase + i);
     qs.push({
-      id: nid("q"),
+      id: `${lessonId}_L${level}_essay${i}`,
       subject,
       grade,
       lessonId,
@@ -238,8 +243,10 @@ export function generateLessons(): Lesson[] {
   SUBJECTS.forEach(subject => {
     GRADES.forEach(grade => {
       (LESSON_TITLES[subject] || []).forEach((title, i) => {
+        // Deterministic ID (not nid()) so it stays stable across reloads — lessons are
+        // regenerated fresh every page load rather than persisted; see generateQuestionsFor.
         out.push({
-          id: nid("les"),
+          id: `les_${norm(subject).replace(/\s+/g, "")}_${grade}_${i + 1}`,
           subject,
           grade,
           order: i + 1,

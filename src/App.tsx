@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
   Home, 
@@ -25,6 +25,7 @@ import {
   nid,
   todayStr
 } from './data/seedData';
+import { loadAccounts, saveAccounts, loadScores, saveScores } from './data/storage';
 import { AuthShell, LoginPage, RegisterPage } from './components/Auth';
 import { Toast, Badge, Avatar, isLessonFullyPassed, tierForOrder, AnTamLogo } from './components/UI';
 import { StudentHome, QuizSelectPage, ExamPage, ResultPage } from './components/Student';
@@ -81,14 +82,22 @@ const ROLE_TONE: Record<string, string> = { admin: "red", teacher: "indigo", stu
 
 export default function App() {
   // State initialization
-  const [users, setUsers] = useState<User[]>(() => generateUsers());
+  // Accounts (GV/HS/Admin) and student scores (attempts + certificates) are persisted to
+  // localStorage so they survive page reloads and new app deployments instead of resetting
+  // to the in-code demo seed every time. Seed data is only used the very first time.
+  const [users, setUsers] = useState<User[]>(() => loadAccounts<User[]>() || generateUsers());
   const [initialLessons] = useState<Lesson[]>(() => generateLessons());
   const [lessons, setLessons] = useState<Lesson[]>(initialLessons);
   const [questions, setQuestions] = useState<Question[]>(() => generateAllQuestions(initialLessons));
   const [posts, setPosts] = useState<Post[]>(() => generatePosts(users));
   const [documents, setDocuments] = useState<Document[]>(() => generateDocuments(users));
-  const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [savedScores] = useState(() => loadScores());
+  const [attempts, setAttempts] = useState<Attempt[]>(() => (savedScores?.attempts as Attempt[]) || []);
+  const [certificates, setCertificates] = useState<Certificate[]>(() => (savedScores?.certificates as Certificate[]) || []);
+
+  // Persist accounts and scores whenever they change.
+  useEffect(() => { saveAccounts(users); }, [users]);
+  useEffect(() => { saveScores(attempts, certificates); }, [attempts, certificates]);
 
   // Navigation states
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -346,8 +355,8 @@ export default function App() {
     <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 font-sans">
       {/* Sidebar for Desktop */}
       <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 border-r border-slate-200 bg-white sticky top-0 h-screen shadow-xs">
-        <div className="px-4 py-5 flex flex-col items-center gap-2 border-b border-slate-100 text-center">
-          <AnTamLogo size={75} />
+        <div className="px-2 py-6 flex flex-col items-center gap-2 border-b border-slate-100 text-center">
+          <AnTamLogo size={225} />
           <div className="mt-1">
             <div className="font-extrabold text-base text-emerald-800 tracking-tight leading-none">AN TÂM</div>
             <div className="font-bold text-[8px] text-amber-600 tracking-[0.25em] mt-1.5 leading-none uppercase">EDUCATION</div>
@@ -390,16 +399,16 @@ export default function App() {
       </aside>
 
       {/* Top bar for Mobile */}
-      <div className="lg:hidden fixed top-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-2 flex items-center justify-between">
+      <div className="lg:hidden fixed top-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <AnTamLogo size={36} />
+          <AnTamLogo size={108} />
           <div>
             <div className="font-extrabold text-xs text-emerald-800 leading-none">AN TÂM</div>
             <div className="font-bold text-[7px] text-amber-600 tracking-widest mt-0.5 leading-none uppercase">EDUCATION</div>
           </div>
         </div>
-        <button 
-          onClick={() => setMobileNav(v => !v)} 
+        <button
+          onClick={() => setMobileNav(v => !v)}
           className="p-1.5 rounded-lg bg-slate-100 text-slate-700 active:scale-95 transition-all"
         >
           {mobileNav ? <X size={18} /> : <Menu size={18} />}
@@ -408,7 +417,7 @@ export default function App() {
 
       {/* Mobile Drawer Navigation overlay */}
       {mobileNav && (
-        <div className="lg:hidden fixed top-[53px] inset-x-0 z-30 bg-white border-b border-slate-200 shadow-md p-3 space-y-1 animate-fadeUp">
+        <div className="lg:hidden fixed top-[132px] inset-x-0 z-30 bg-white border-b border-slate-200 shadow-md p-3 space-y-1 animate-fadeUp">
           {navItems.map(it => (
             <button 
               key={it.key} 
@@ -434,7 +443,7 @@ export default function App() {
       )}
 
       {/* Main Container */}
-      <main className="flex-1 min-w-0 pt-16 lg:pt-0 pb-16 lg:pb-0">
+      <main className="flex-1 min-w-0 pt-[140px] lg:pt-0 pb-16 lg:pb-0">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
           {content}
         </div>
