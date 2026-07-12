@@ -12,6 +12,7 @@ export interface Question {
   subject: string;
   grade: number;
   lessonId: string;
+  level: number; // Sub-level within the lesson: 1, 2 or 3
   type: 'mcq' | 'short' | 'essay';
   content: string;
   options?: string[]; // For mcq
@@ -70,6 +71,7 @@ export interface Attempt {
   subject: string;
   grade: number;
   lessonId: string;
+  level: number; // Sub-level within the lesson: 1, 2 or 3
   score: number;
   total: number;
   passed: boolean;

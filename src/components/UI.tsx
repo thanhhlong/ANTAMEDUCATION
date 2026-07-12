@@ -11,7 +11,7 @@ import {
   Clock3
 } from 'lucide-react';
 import { Attempt, User, Lesson } from '../types';
-import { LEVELS, SUBJECTS } from '../data/seedData';
+import { LEVELS, SUBJECTS, MAX_SUB_LEVEL } from '../data/seedData';
 
 export function AnTamLogo({ className = "", size = 48, withText = false }: { className?: string; size?: number; withText?: boolean }) {
   return (
@@ -342,6 +342,7 @@ export function orderedLessons(lessons: Lesson[], subject: string, grade: number
   return lessons.filter(l => l.subject === subject && l.grade === grade).sort((a, b) => a.order - b.order);
 }
 
+// Best attempt per (subject, grade, lesson) — regardless of sub-level, used for lesson-wide "best score" displays.
 export function bestAttemptsByLesson(attempts: Attempt[], userId: string): Record<string, Attempt> {
   const map: Record<string, Attempt> = {};
   attempts.filter(a => a.userId === userId).forEach(a => {
@@ -353,14 +354,31 @@ export function bestAttemptsByLesson(attempts: Attempt[], userId: string): Recor
   return map;
 }
 
+// Best attempt per (subject, grade, lesson, sub-level) — drives the Cấp 1/2/3 unlock chain inside a lesson.
+export function bestAttemptsByLessonLevel(attempts: Attempt[], userId: string): Record<string, Attempt> {
+  const map: Record<string, Attempt> = {};
+  attempts.filter(a => a.userId === userId).forEach(a => {
+    const key = `${a.subject}|${a.grade}|${a.lessonId}|${a.level}`;
+    if (!map[key] || a.score > map[key].score) {
+      map[key] = a;
+    }
+  });
+  return map;
+}
+
+// A lesson only counts as fully passed once its final sub-level (Cấp 3) has been passed.
+export function isLessonFullyPassed(attempts: Attempt[], userId: string, subject: string, grade: number, lessonId: string): boolean {
+  return attempts.some(a => a.userId === userId && a.subject === subject && a.grade === grade && a.lessonId === lessonId && a.level === MAX_SUB_LEVEL && a.passed);
+}
+
 export function highestPassedLessonOrder(attempts: Attempt[], lessons: Lesson[], userId: string, subject: string, grade: number): number {
   const ol = orderedLessons(lessons, subject, grade);
   let max = 0;
-  attempts.filter(a => a.userId === userId && a.subject === subject && a.grade === grade && a.passed)
-    .forEach(a => {
-      const lesson = ol.find(l => l.id === a.lessonId);
-      if (lesson && lesson.order > max) max = lesson.order;
-    });
+  ol.forEach(lesson => {
+    if (isLessonFullyPassed(attempts, userId, subject, grade, lesson.id) && lesson.order > max) {
+      max = lesson.order;
+    }
+  });
   return max;
 }
 
@@ -369,8 +387,18 @@ export function isLessonUnlocked(attempts: Attempt[], lessons: Lesson[], userId:
   return highestPassedLessonOrder(attempts, lessons, userId, subject, grade) >= order - 1;
 }
 
+// Sub-level unlock chain within a lesson: Cấp 1 opens once the lesson itself is unlocked;
+// Cấp 2/3 open once the previous sub-level of the SAME lesson has been passed.
+export function isSubLevelUnlocked(attempts: Attempt[], userId: string, subject: string, grade: number, lessonId: string, level: number, lessonUnlocked: boolean): boolean {
+  if (level <= 1) return lessonUnlocked;
+  return lessonUnlocked && attempts.some(a =>
+    a.userId === userId && a.subject === subject && a.grade === grade &&
+    a.lessonId === lessonId && a.level === level - 1 && a.passed
+  );
+}
+
 export function userTotalPoints(attempts: Attempt[], userId: string): number {
-  const map = bestAttemptsByLesson(attempts, userId);
+  const map = bestAttemptsByLessonLevel(attempts, userId);
   return Object.values(map).reduce((sum, a) => sum + a.score, 0);
 }
 

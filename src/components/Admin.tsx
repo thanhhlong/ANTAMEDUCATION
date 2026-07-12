@@ -19,7 +19,7 @@ import {
 import * as XLSX from 'xlsx';
 import { User, Question, Lesson, Post, Attempt } from '../types';
 import { Card, Badge, Button, Input, Select, Textarea, Modal, EmptyState, Avatar, MedalDot, userTotalPoints, computeLeaderboard, orderedLessons, VisibilityToolbar } from './UI';
-import { SUBJECTS, GRADES, SUBJECT_COLOR, nid, norm, todayStr } from '../data/seedData';
+import { SUBJECTS, GRADES, SUBJECT_COLOR, SUB_LEVELS, SUB_LEVEL_NAME, nid, norm, todayStr } from '../data/seedData';
 
 // --- OVERVIEW PANEL ---
 interface AdminOverviewProps {
@@ -407,6 +407,7 @@ interface QuestionFormModalProps {
   defaultSubject: string;
   defaultGrade: number;
   defaultLessonId: string;
+  defaultLevel: number;
 }
 
 export function QuestionFormModal({
@@ -417,12 +418,14 @@ export function QuestionFormModal({
   lessons,
   defaultSubject,
   defaultGrade,
-  defaultLessonId
+  defaultLessonId,
+  defaultLevel
 }: QuestionFormModalProps) {
   const [type, setType] = useState<'mcq' | 'short' | 'essay'>('mcq');
   const [subject, setSubject] = useState(defaultSubject);
   const [grade, setGrade] = useState(defaultGrade);
   const [lessonId, setLessonId] = useState(defaultLessonId);
+  const [level, setLevel] = useState(defaultLevel);
   const [content, setContent] = useState('');
   const [options, setOptions] = useState<string[]>(["", "", "", ""]);
   const [correct, setCorrect] = useState(0);
@@ -437,6 +440,7 @@ export function QuestionFormModal({
       setSubject(editing.subject);
       setGrade(editing.grade);
       setLessonId(editing.lessonId);
+      setLevel(editing.level);
       setContent(editing.content);
       setOptions(editing.type === 'mcq' && editing.options ? editing.options : ["", "", "", ""]);
       setCorrect(editing.type === 'mcq' && editing.correct !== undefined ? editing.correct : 0);
@@ -447,13 +451,14 @@ export function QuestionFormModal({
       setSubject(defaultSubject);
       setGrade(defaultGrade);
       setLessonId(defaultLessonId);
+      setLevel(defaultLevel);
       setContent('');
       setOptions(["", "", "", ""]);
       setCorrect(0);
       setSampleAnswer('');
       setKeywords('');
     }
-  }, [editing, open, defaultSubject, defaultGrade, defaultLessonId]);
+  }, [editing, open, defaultSubject, defaultGrade, defaultLessonId, defaultLevel]);
 
   // Keep lessonId valid whenever subject/grade changes away from the editing lesson's scope
   useEffect(() => {
@@ -472,6 +477,7 @@ export function QuestionFormModal({
       subject,
       grade: Number(grade),
       lessonId,
+      level: Number(level),
       type,
       content: content.trim()
     };
@@ -503,16 +509,22 @@ export function QuestionFormModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Select label="Môn học" value={subject} onChange={e => setSubject(e.target.value)}>
             {SUBJECTS.map(s => <option key={s}>{s}</option>)}
           </Select>
           <Select label="Khối lớp" value={grade} onChange={e => setGrade(Number(e.target.value))}>
             {GRADES.map(g => <option key={g} value={g}>Khối {g}</option>)}
           </Select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <Select label="Bài học" value={lessonId} onChange={e => setLessonId(e.target.value)}>
             {lessonOptions.length === 0 && <option value="">Chưa có bài học</option>}
             {lessonOptions.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+          </Select>
+          <Select label="Cấp độ trong bài" value={level} onChange={e => setLevel(Number(e.target.value))}>
+            {SUB_LEVELS.map(l => <option key={l} value={l}>{SUB_LEVEL_NAME[l]}</option>)}
           </Select>
         </div>
 
@@ -588,6 +600,7 @@ interface AdminQuestionsProps {
 export function AdminQuestions({ questions, setQuestions, lessons, setLessons, showToast }: AdminQuestionsProps) {
   const [subject, setSubject] = useState(SUBJECTS[0]);
   const [grade, setGrade] = useState(GRADES[0]);
+  const [level, setLevel] = useState<number>(SUB_LEVELS[0]);
   const [typeFilter, setTypeFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Question | null>(null);
@@ -605,6 +618,7 @@ export function AdminQuestions({ questions, setQuestions, lessons, setLessons, s
 
   const list = questions.filter(q => {
     return q.lessonId === lessonId &&
+           q.level === level &&
            (typeFilter === 'all' || q.type === typeFilter);
   });
 
@@ -636,7 +650,7 @@ export function AdminQuestions({ questions, setQuestions, lessons, setLessons, s
         <div>
           <h1 className="text-2xl font-extrabold text-slate-800">Ngân hàng câu hỏi</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Quản lý ngân hàng câu hỏi phân theo môn học, khối lớp, bài học và dạng câu hỏi.
+            Quản lý ngân hàng câu hỏi phân theo môn học, khối lớp, bài học, cấp độ trong bài (Cấp 1/2/3) và dạng câu hỏi.
           </p>
         </div>
         <Button icon={<Plus size={14} />} onClick={() => { setEditing(null); setModalOpen(true); }}>
@@ -654,6 +668,9 @@ export function AdminQuestions({ questions, setQuestions, lessons, setLessons, s
         <Select value={lessonId} onChange={e => setLessonId(e.target.value)} className="w-64 !py-2.5">
           {subjectGradeLessons.length === 0 && <option value="">Chưa có bài học</option>}
           {subjectGradeLessons.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+        </Select>
+        <Select value={level} onChange={e => setLevel(Number(e.target.value))} className="w-32 !py-2.5">
+          {SUB_LEVELS.map(l => <option key={l} value={l}>{SUB_LEVEL_NAME[l]}</option>)}
         </Select>
         <Select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="w-48 !py-2.5">
           <option value="all">Tất cả loại câu hỏi</option>
@@ -755,6 +772,7 @@ export function AdminQuestions({ questions, setQuestions, lessons, setLessons, s
         defaultSubject={subject}
         defaultGrade={grade}
         defaultLessonId={lessonId}
+        defaultLevel={level}
       />
     </div>
   );
