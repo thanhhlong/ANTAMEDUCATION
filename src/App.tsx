@@ -15,17 +15,18 @@ import {
   Award 
 } from 'lucide-react';
 import { User, Question, Lesson, Post, Document, Attempt, Certificate, ToastData } from './types';
-import { 
-  generateUsers, 
-  generateAllQuestions, 
-  generateLessons, 
-  generatePosts, 
+import {
+  generateUsers,
+  generateAllQuestions,
+  generateLessons,
+  generatePosts,
   generateDocuments,
+  MAX_SUB_LEVEL,
   nid,
-  todayStr 
+  todayStr
 } from './data/seedData';
 import { AuthShell, LoginPage, RegisterPage } from './components/Auth';
-import { Toast, Badge, Avatar, highestPassedLessonOrder, tierForOrder, AnTamLogo } from './components/UI';
+import { Toast, Badge, Avatar, isLessonFullyPassed, tierForOrder, AnTamLogo } from './components/UI';
 import { StudentHome, QuizSelectPage, ExamPage, ResultPage } from './components/Student';
 import { TeacherDocuments } from './components/Teacher';
 import { 
@@ -94,7 +95,7 @@ export default function App() {
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [page, setPage] = useState<string>('home');
   const [activeSubject, setActiveSubject] = useState<string>("Toán");
-  const [examState, setExamState] = useState<{ subject: string; lessonId: string } | null>(null);
+  const [examState, setExamState] = useState<{ subject: string; lessonId: string; level: number } | null>(null);
   const [result, setResult] = useState<Attempt | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
@@ -146,8 +147,8 @@ export default function App() {
     showToast("Đã gửi bài viết, vui lòng chờ Admin duyệt.");
   };
 
-  const handleStartExam = (subject: string, lessonId: string) => {
-    setExamState({ subject, lessonId });
+  const handleStartExam = (subject: string, lessonId: string, level: number) => {
+    setExamState({ subject, lessonId, level });
     setResult(null);
   };
 
@@ -155,6 +156,7 @@ export default function App() {
     subject: string;
     grade: number;
     lessonId: string;
+    level: number;
     score: number;
     total: number;
     passed: boolean;
@@ -163,8 +165,8 @@ export default function App() {
     if (!currentUser) return;
 
     const lesson = lessons.find(l => l.id === examResult.lessonId);
-    const alreadyPassed = lesson
-      ? highestPassedLessonOrder(attempts, lessons, currentUser.id, examResult.subject, examResult.grade) >= lesson.order
+    const wasLessonAlreadyDone = lesson
+      ? isLessonFullyPassed(attempts, currentUser.id, examResult.subject, examResult.grade, lesson.id)
       : false;
     const newAttempt: Attempt = {
       id: nid("att"),
@@ -175,7 +177,7 @@ export default function App() {
 
     setAttempts(prev => [...prev, newAttempt]);
 
-    if (examResult.passed && !alreadyPassed && lesson) {
+    if (examResult.passed && examResult.level === MAX_SUB_LEVEL && !wasLessonAlreadyDone && lesson) {
       const tier = tierForOrder(lesson.order);
       const newCert: Certificate = {
         id: nid("cert"),
@@ -189,6 +191,8 @@ export default function App() {
       };
       setCertificates(prev => [...prev, newCert]);
       showToast(`Chúc mừng! Bạn đã hoàn thành "${lesson.title}"${tier.medal ? ` và nhận huy chương ${tier.medal}!` : "!"}`);
+    } else if (examResult.passed && examResult.level < MAX_SUB_LEVEL && lesson) {
+      showToast(`Bạn đã qua Cấp ${examResult.level}! Mở khoá Cấp ${examResult.level + 1} của "${lesson.title}".`);
     }
 
     setExamState(null);
@@ -230,6 +234,7 @@ export default function App() {
           user={currentUser}
           subject={examState.subject}
           lessonId={examState.lessonId}
+          level={examState.level}
           lessons={lessons}
           questions={questions}
           onSubmit={handleSubmitExam}
@@ -242,7 +247,7 @@ export default function App() {
           result={result}
           lessons={lessons}
           onContinue={() => { setResult(null); setPage("quiz"); }}
-          onRetry={() => { setExamState({ subject: result.subject, lessonId: result.lessonId }); setResult(null); }}
+          onRetry={() => { setExamState({ subject: result.subject, lessonId: result.lessonId, level: result.level }); setResult(null); }}
         />
       );
     } else if (page === 'home') {

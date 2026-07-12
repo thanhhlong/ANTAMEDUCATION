@@ -19,6 +19,12 @@ export const LEVELS: LevelInfo[] = [
   { id: 5, name: "Chuyên gia", medal: "Kim cương", color: "#0ea5e9", grad: "from-sky-400 to-blue-600" },
 ];
 
+// Each lesson's quiz is split into 3 sequential sub-levels (Cấp 1 -> Cấp 2 -> Cấp 3).
+// Passing Cấp 3 is what marks the lesson itself as complete.
+export const SUB_LEVELS = [1, 2, 3];
+export const SUB_LEVEL_NAME: Record<number, string> = { 1: "Cấp 1", 2: "Cấp 2", 3: "Cấp 3" };
+export const MAX_SUB_LEVEL = 3;
+
 export const SUBJECT_COLOR: Record<string, { bg: string; text: string; ring: string; solid: string }> = {
   "Toán": { bg: "bg-blue-50", text: "text-blue-700", ring: "ring-blue-200", solid: "bg-blue-600" },
   "Tiếng Anh": { bg: "bg-sky-50", text: "text-sky-700", ring: "ring-sky-200", solid: "bg-sky-600" },
@@ -156,20 +162,22 @@ function essayQ(subject: string, grade: number, level: number, seedIdx: number) 
   };
 }
 
-export function generateQuestionsFor(subject: string, grade: number, lessonId: string, varietySeed: number): Question[] {
+export function generateQuestionsFor(subject: string, grade: number, lessonId: string, level: number, varietySeed: number): Question[] {
   const gens: Record<string, (g: number, l: number, s: number) => { content: string; options: string[]; correct: number }> = {
     "Toán": mcqMath, "Tiếng Anh": mcqEnglish, "Văn": mcqLit, "KHTN": mcqScience
   };
   const mk = gens[subject] || mcqMath;
   const qs: Question[] = [];
+  const seedBase = varietySeed * 10;
 
   for (let i = 0; i < 6; i++) {
-    const m = mk(grade, varietySeed, i);
+    const m = mk(grade, level, seedBase + i);
     qs.push({
       id: nid("q"),
       subject,
       grade,
       lessonId,
+      level,
       type: "mcq",
       content: m.content,
       options: m.options,
@@ -178,12 +186,13 @@ export function generateQuestionsFor(subject: string, grade: number, lessonId: s
   }
 
   for (let i = 0; i < 2; i++) {
-    const s = shortQ(subject, grade, varietySeed, i);
+    const s = shortQ(subject, grade, level, seedBase + i);
     qs.push({
       id: nid("q"),
       subject,
       grade,
       lessonId,
+      level,
       type: "short",
       content: s.content,
       sampleAnswer: s.sampleAnswer
@@ -191,12 +200,13 @@ export function generateQuestionsFor(subject: string, grade: number, lessonId: s
   }
 
   for (let i = 0; i < 2; i++) {
-    const e = essayQ(subject, grade, varietySeed, i);
+    const e = essayQ(subject, grade, level, seedBase + i);
     qs.push({
       id: nid("q"),
       subject,
       grade,
       lessonId,
+      level,
       type: "essay",
       content: e.content,
       keywords: e.keywords
@@ -209,7 +219,9 @@ export function generateQuestionsFor(subject: string, grade: number, lessonId: s
 export function generateAllQuestions(lessons: Lesson[]): Question[] {
   const out: Question[] = [];
   lessons.forEach(lesson => {
-    out.push(...generateQuestionsFor(lesson.subject, lesson.grade, lesson.id, lesson.order));
+    SUB_LEVELS.forEach(level => {
+      out.push(...generateQuestionsFor(lesson.subject, lesson.grade, lesson.id, level, lesson.order));
+    });
   });
   return out;
 }

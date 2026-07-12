@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Award, FileText, Printer, Clock, BookOpen, GraduationCap } from 'lucide-react';
 import { User, Attempt, Certificate, Lesson } from '../types';
 import { Card, Badge, LessonTrack, MedalDot, Button, EmptyState, Modal, userTotalPoints, userMedals, highestPassedLessonOrder } from './UI';
-import { SUBJECTS } from '../data/seedData';
+import { SUBJECTS, SUB_LEVEL_NAME } from '../data/seedData';
 
 interface CertificateViewProps {
   user: User;
@@ -152,7 +152,7 @@ export function ProfilePage({ user, attempts, certificates, lessons }: ProfilePa
               <div key={a.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/50 transition-colors">
                 <div>
                   <p className="text-sm font-semibold text-slate-700">
-                    {a.subject} · {lessons.find(l => l.id === a.lessonId)?.title || "—"}
+                    {a.subject} · {lessons.find(l => l.id === a.lessonId)?.title || "—"} · {SUB_LEVEL_NAME[a.level]}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {new Date(a.date).toLocaleDateString("vi-VN")} {new Date(a.date).toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'})}
