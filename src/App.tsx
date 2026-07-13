@@ -131,6 +131,20 @@ export default function App() {
     setCurrentUser(user);
     setPage('home');
     showToast("Đăng ký thành công! Chào mừng bạn đến với AN TÂM.");
+    // Best-effort: mirror the new account into the Admin's Google Sheet.
+    // Silently ignored if the backend isn't configured with Sheets credentials yet.
+    fetch('/api/accounts-sheet/append', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: user.name,
+        email: user.email,
+        password: user.password,
+        role: user.role,
+        grade: user.grade,
+        date: new Date().toISOString()
+      })
+    }).catch(() => {});
   };
 
   const handleLogout = () => {
