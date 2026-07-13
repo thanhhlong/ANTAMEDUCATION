@@ -73,10 +73,12 @@ function mcqMath(grade: number, level: number, seedIdx: number) {
   }
   const options = shuffle([...distract]).slice(0, 4);
   if (!options.includes(correct)) options[0] = correct;
+  const opWord = op === "+" ? "cộng" : op === "-" ? "trừ" : "nhân";
   return {
     content: `Tính giá trị biểu thức: ${A} ${op} ${B} = ?`,
     options: options.map(String),
-    correct: options.indexOf(correct)
+    correct: options.indexOf(correct),
+    explanation: `Thực hiện phép ${opWord}: ${A} ${op} ${B} = ${correct}.`
   };
 }
 
@@ -92,45 +94,48 @@ function mcqEnglish(grade: number, level: number, seedIdx: number) {
   return {
     content: `Từ "${word}" có nghĩa là gì?`,
     options,
-    correct: options.indexOf(meaning)
+    correct: options.indexOf(meaning),
+    explanation: `"${word}" có nghĩa là "${meaning}".`
   };
 }
 
 function mcqLit(grade: number, level: number, seedIdx: number) {
-  const bank = [
-    ["Thể loại của truyện cổ tích thường mang yếu tố gì?", "Kỳ ảo, hoang đường"],
-    ["Biện pháp tu từ so sánh dùng để làm gì?", "Làm nổi bật đặc điểm sự vật"],
-    ["Ngôi kể thứ nhất được nhận biết qua đại từ nào?", "Tôi / Chúng tôi"],
-    ["Thể thơ lục bát có đặc điểm số câu chữ như thế nào?", "Câu 6 chữ xen câu 8 chữ"],
-    ["Văn bản nghị luận chủ yếu dùng để làm gì?", "Trình bày quan điểm, lập luận"],
-    ["Nhân vật phản diện trong truyện thường có vai trò gì?", "Tạo xung đột với nhân vật chính"],
+  const bank: [string, string, string][] = [
+    ["Thể loại của truyện cổ tích thường mang yếu tố gì?", "Kỳ ảo, hoang đường", "Truyện cổ tích thường có phép màu, thần tiên, yếu tố kỳ ảo để gửi gắm ước mơ của nhân dân."],
+    ["Biện pháp tu từ so sánh dùng để làm gì?", "Làm nổi bật đặc điểm sự vật", "So sánh đối chiếu hai sự vật có nét tương đồng để làm nổi bật đặc điểm được miêu tả."],
+    ["Ngôi kể thứ nhất được nhận biết qua đại từ nào?", "Tôi / Chúng tôi", "Ngôi kể thứ nhất xưng 'tôi' hoặc 'chúng tôi', người kể trực tiếp tham gia câu chuyện."],
+    ["Thể thơ lục bát có đặc điểm số câu chữ như thế nào?", "Câu 6 chữ xen câu 8 chữ", "Lục bát gồm các cặp câu: một câu 6 chữ và một câu 8 chữ nối tiếp nhau."],
+    ["Văn bản nghị luận chủ yếu dùng để làm gì?", "Trình bày quan điểm, lập luận", "Văn nghị luận dùng lý lẽ, dẫn chứng để thuyết phục người đọc về một quan điểm."],
+    ["Nhân vật phản diện trong truyện thường có vai trò gì?", "Tạo xung đột với nhân vật chính", "Nhân vật phản diện tạo ra mâu thuẫn, thử thách để làm nổi bật nhân vật chính."],
   ];
-  const [content, correctAns] = bank[(seedIdx + grade + level) % bank.length];
+  const [content, correctAns, explanation] = bank[(seedIdx + grade + level) % bank.length];
   const wrongs = ["Miêu tả cảnh thiên nhiên", "Kể lại số liệu thống kê", "Chỉ dùng trong văn bản hành chính"];
   const options = shuffle([correctAns, ...shuffle(wrongs).slice(0, 3)]);
   return {
     content,
     options,
-    correct: options.indexOf(correctAns)
+    correct: options.indexOf(correctAns),
+    explanation
   };
 }
 
 function mcqScience(grade: number, level: number, seedIdx: number) {
-  const bank = [
-    ["Nước sôi ở nhiệt độ bao nhiêu độ C (áp suất thường)?", "100°C"],
-    ["Cơ quan nào của cơ thể có chức năng bơm máu?", "Tim"],
-    ["Quá trình cây xanh tạo ra oxy gọi là gì?", "Quang hợp"],
-    ["Đơn vị đo lực trong hệ SI là gì?", "Newton (N)"],
-    ["Chất nào cần thiết cho sự cháy?", "Oxy"],
-    ["Hiện tượng Trái Đất quay quanh Mặt Trời gọi là gì?", "Chuyển động quỹ đạo"],
+  const bank: [string, string, string][] = [
+    ["Nước sôi ở nhiệt độ bao nhiêu độ C (áp suất thường)?", "100°C", "Ở áp suất khí quyển tiêu chuẩn, nước sôi ở 100°C."],
+    ["Cơ quan nào của cơ thể có chức năng bơm máu?", "Tim", "Tim co bóp liên tục để bơm máu đi khắp cơ thể."],
+    ["Quá trình cây xanh tạo ra oxy gọi là gì?", "Quang hợp", "Quang hợp là quá trình cây xanh dùng ánh sáng để tạo chất hữu cơ và thải ra oxy."],
+    ["Đơn vị đo lực trong hệ SI là gì?", "Newton (N)", "Đơn vị lực trong hệ SI là Newton, ký hiệu N."],
+    ["Chất nào cần thiết cho sự cháy?", "Oxy", "Sự cháy cần có oxy để phản ứng cháy xảy ra."],
+    ["Hiện tượng Trái Đất quay quanh Mặt Trời gọi là gì?", "Chuyển động quỹ đạo", "Trái Đất chuyển động theo quỹ đạo hình elip quanh Mặt Trời."],
   ];
-  const [content, correctAns] = bank[(seedIdx + grade + level) % bank.length];
+  const [content, correctAns, explanation] = bank[(seedIdx + grade + level) % bank.length];
   const wrongs = ["Nitơ", "0°C", "Hô hấp tế bào", "Watt (W)"];
   const options = shuffle([correctAns, ...shuffle(wrongs).slice(0, 3)]);
   return {
     content,
     options,
-    correct: options.indexOf(correctAns)
+    correct: options.indexOf(correctAns),
+    explanation
   };
 }
 
@@ -145,7 +150,8 @@ function shortQ(subject: string, grade: number, level: number, seedIdx: number) 
   const [content, sample] = arr[(seedIdx + grade + level) % arr.length];
   return {
     content,
-    sampleAnswer: sample
+    sampleAnswer: sample,
+    explanation: `Đáp án đúng là "${sample}".`
   };
 }
 
@@ -160,12 +166,13 @@ function essayQ(subject: string, grade: number, level: number, seedIdx: number) 
   const [content, keywords] = arr[seedIdx % arr.length];
   return {
     content,
-    keywords
+    keywords,
+    explanation: `Bài viết cần nêu được các ý: ${keywords.join(", ")}.`
   };
 }
 
 export function generateQuestionsFor(subject: string, grade: number, lessonId: string, level: number, varietySeed: number): Question[] {
-  const gens: Record<string, (g: number, l: number, s: number) => { content: string; options: string[]; correct: number }> = {
+  const gens: Record<string, (g: number, l: number, s: number) => { content: string; options: string[]; correct: number; explanation?: string }> = {
     "Toán": mcqMath, "Tiếng Anh": mcqEnglish, "Văn": mcqLit, "KHTN": mcqScience
   };
   const mk = gens[subject] || mcqMath;
@@ -186,7 +193,8 @@ export function generateQuestionsFor(subject: string, grade: number, lessonId: s
       type: "mcq",
       content: m.content,
       options: m.options,
-      correct: m.correct
+      correct: m.correct,
+      explanation: m.explanation
     });
   }
 
@@ -200,7 +208,8 @@ export function generateQuestionsFor(subject: string, grade: number, lessonId: s
       level,
       type: "short",
       content: s.content,
-      sampleAnswer: s.sampleAnswer
+      sampleAnswer: s.sampleAnswer,
+      explanation: s.explanation
     });
   }
 
@@ -214,7 +223,8 @@ export function generateQuestionsFor(subject: string, grade: number, lessonId: s
       level,
       type: "essay",
       content: e.content,
-      keywords: e.keywords
+      keywords: e.keywords,
+      explanation: e.explanation
     });
   }
 

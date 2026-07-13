@@ -313,6 +313,7 @@ interface ExamPageProps {
   level: number;
   lessons: Lesson[];
   questions: Question[];
+  attempts: Attempt[];
   onSubmit: (result: {
     subject: string;
     grade: number;
@@ -326,11 +327,22 @@ interface ExamPageProps {
   onCancel: () => void;
 }
 
-export function ExamPage({ user, subject, lessonId, level, lessons, questions, onSubmit, onCancel }: ExamPageProps) {
+export function ExamPage({ user, subject, lessonId, level, lessons, questions, attempts, onSubmit, onCancel }: ExamPageProps) {
   // Extract questions matching the lesson's sub-level
   const qs = useMemo(() => {
     return questions.filter(q => q.lessonId === lessonId && q.level === level);
   }, [questions, lessonId, level]);
+
+  // Questions the student got wrong on their most recent attempt at this same lesson/level,
+  // so they can be flagged as "you got this wrong last time" while retaking it.
+  const previousWrongQids = useMemo(() => {
+    const mine = attempts
+      .filter(a => a.userId === user.id && a.lessonId === lessonId && a.level === level)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const last = mine[0];
+    if (!last) return new Set<string>();
+    return new Set(last.details.filter(d => d.score < 1).map(d => d.qid));
+  }, [attempts, user.id, lessonId, level]);
 
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [idx, setIdx] = useState(0);
@@ -428,8 +440,11 @@ export function ExamPage({ user, subject, lessonId, level, lessons, questions, o
             {q.type === 'mcq' ? 'Trắc nghiệm' : q.type === 'short' ? 'Trả lời ngắn' : 'Bài luận ngắn'}
           </Badge>
           <span className="text-xs text-slate-400">1 điểm</span>
+          {previousWrongQids.has(q.id) && (
+            <Badge tone="amber">⚠️ Lần trước bạn đã làm sai câu này</Badge>
+          )}
         </div>
-        
+
         <p className="font-semibold text-slate-800 text-lg mb-5 leading-relaxed">{q.content}</p>
 
         {q.type === 'mcq' && (
@@ -480,16 +495,17 @@ export function ExamPage({ user, subject, lessonId, level, lessons, questions, o
         
         <div className="flex gap-1.5">
           {qs.map((qq, i) => (
-            <button 
-              key={qq.id} 
+            <button
+              key={qq.id}
               onClick={() => setIdx(i)}
-              className={`w-2.5 h-2.5 rounded-full transition-all duration-200 ${
-                i === idx 
-                  ? "bg-emerald-600 w-6" 
+              title={previousWrongQids.has(qq.id) ? "Lần trước bạn đã làm sai câu này" : undefined}
+              className={`relative w-2.5 h-2.5 rounded-full transition-all duration-200 ${
+                i === idx
+                  ? "bg-emerald-600 w-6"
                   : answers[qq.id] !== undefined && answers[qq.id] !== ""
-                    ? "bg-emerald-400" 
+                    ? "bg-emerald-400"
                     : "bg-slate-200"
-              }`}
+              } ${previousWrongQids.has(qq.id) ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
             ></button>
           ))}
         </div>
@@ -528,11 +544,12 @@ export function ExamPage({ user, subject, lessonId, level, lessons, questions, o
 interface ResultPageProps {
   result: Attempt;
   lessons: Lesson[];
+  questions: Question[];
   onContinue: () => void;
   onRetry: () => void;
 }
 
-export function ResultPage({ result, lessons, onContinue, onRetry }: ResultPageProps) {
+export function ResultPage({ result, lessons, questions, onContinue, onRetry }: ResultPageProps) {
   const lesson = lessons.find(l => l.id === result.lessonId);
   const tier = tierForOrder(lesson?.order || 1);
   const passed = result.passed;
@@ -585,6 +602,62 @@ export function ResultPage({ result, lessons, onContinue, onRetry }: ResultPageP
           <Button className="flex-1 justify-center" onClick={onContinue}>
             Về danh sách bài học
           </Button>
+        </div>
+      </Card>
+
+      <Card className="p-6 mt-5 text-left animate-fadeUp">
+        <h3 className="font-bold text-slate-800 mb-4">Xem lại bài làm</h3>
+        <div className="space-y-4">
+          {result.details.map((d, i) => {
+            const q = questions.find(qq => qq.id === d.qid);
+            const isCorrect = d.score >= 1;
+            const isPartial = d.score > 0 && d.score < 1;
+
+            let givenText = "(Bỏ trống)";
+            let correctText = "";
+            if (q) {
+              if (q.type === 'mcq') {
+                givenText = typeof d.given === 'number' && q.options?.[d.given] !== undefined
+                  ? `${String.fromCharCode(65 + d.given)}. ${q.options[d.given]}`
+                  : "(Bỏ trống)";
+                correctText = q.correct !== undefined && q.options?.[q.correct] !== undefined
+                  ? `${String.fromCharCode(65 + q.correct)}. ${q.options[q.correct]}`
+                  : "";
+              } else if (q.type === 'short') {
+                givenText = d.given || "(Bỏ trống)";
+                correctText = q.sampleAnswer || "";
+              } else {
+                givenText = d.given || "(Bỏ trống)";
+                correctText = q.keywords?.length ? `Cần nêu được: ${q.keywords.join(", ")}` : "";
+              }
+            }
+
+            return (
+              <div key={d.qid} className={`p-4 rounded-xl border ${
+                isCorrect ? "border-emerald-100 bg-emerald-50/40" : isPartial ? "border-amber-100 bg-amber-50/40" : "border-red-100 bg-red-50/40"
+              }`}>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <p className="text-sm font-semibold text-slate-800">Câu {i + 1}: {d.content}</p>
+                  <Badge tone={isCorrect ? 'green' : isPartial ? 'amber' : 'red'}>
+                    {isCorrect ? "Đúng" : isPartial ? `Một phần (${d.score.toFixed(2)})` : "Sai"}
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-500">
+                  <span className="font-medium text-slate-600">Bạn trả lời:</span> {givenText}
+                </p>
+                {!isCorrect && correctText && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    <span className="font-medium text-slate-600">Đáp án đúng:</span> {correctText}
+                  </p>
+                )}
+                {q?.explanation && (
+                  <p className="text-xs text-slate-600 mt-2 italic bg-white/60 rounded-lg p-2 border border-slate-100">
+                    💡 Giải thích: {q.explanation}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       </Card>
     </div>

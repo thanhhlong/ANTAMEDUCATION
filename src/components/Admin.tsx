@@ -431,6 +431,7 @@ export function QuestionFormModal({
   const [correct, setCorrect] = useState(0);
   const [sampleAnswer, setSampleAnswer] = useState('');
   const [keywords, setKeywords] = useState('');
+  const [explanation, setExplanation] = useState('');
 
   const lessonOptions = orderedLessons(lessons, subject, grade);
 
@@ -446,6 +447,7 @@ export function QuestionFormModal({
       setCorrect(editing.type === 'mcq' && editing.correct !== undefined ? editing.correct : 0);
       setSampleAnswer(editing.type === 'short' && editing.sampleAnswer ? editing.sampleAnswer : '');
       setKeywords(editing.type === 'essay' && editing.keywords ? editing.keywords.join(", ") : '');
+      setExplanation(editing.explanation || '');
     } else {
       setType('mcq');
       setSubject(defaultSubject);
@@ -457,6 +459,7 @@ export function QuestionFormModal({
       setCorrect(0);
       setSampleAnswer('');
       setKeywords('');
+      setExplanation('');
     }
   }, [editing, open, defaultSubject, defaultGrade, defaultLessonId, defaultLevel]);
 
@@ -484,6 +487,7 @@ export function QuestionFormModal({
     if (type === 'mcq') payload = { ...payload, options, correct: Number(correct) };
     if (type === 'short') payload = { ...payload, sampleAnswer: sampleAnswer.trim() };
     if (type === 'essay') payload = { ...payload, keywords: keywords.split(",").map(s => s.trim()).filter(Boolean) };
+    payload.explanation = explanation.trim();
     onSave(payload);
   };
 
@@ -572,15 +576,23 @@ export function QuestionFormModal({
         )}
 
         {type === 'essay' && (
-          <Textarea 
-            label="Bộ từ khoá chấm điểm (cách nhau bởi dấu phẩy) *" 
-            rows={2} 
-            value={keywords} 
-            onChange={e => setKeywords(e.target.value)} 
-            placeholder="ví dụ: quê hương, tình yêu, kỷ niệm, tự hào" 
+          <Textarea
+            label="Bộ từ khoá chấm điểm (cách nhau bởi dấu phẩy) *"
+            rows={2}
+            value={keywords}
+            onChange={e => setKeywords(e.target.value)}
+            placeholder="ví dụ: quê hương, tình yêu, kỷ niệm, tự hào"
           />
         )}
-        
+
+        <Textarea
+          label="Giải thích đáp án (hiện cho học sinh sau khi làm bài)"
+          rows={2}
+          value={explanation}
+          onChange={e => setExplanation(e.target.value)}
+          placeholder="Vì sao đáp án này đúng / các đáp án khác sai..."
+        />
+
         <Button className="w-full justify-center" onClick={save} disabled={!content.trim() || !lessonId}>
           Lưu câu hỏi
         </Button>
@@ -737,8 +749,14 @@ export function AdminQuestions({ questions, setQuestions, lessons, setLessons, s
                     ))}
                   </div>
                 )}
+
+                {q.explanation && (
+                  <p className="text-xs text-slate-500 mt-2 italic">
+                    Giải thích: {q.explanation}
+                  </p>
+                )}
               </div>
-              
+
               <div className="flex gap-1 shrink-0">
                 <button 
                   onClick={() => { setEditing(q); setModalOpen(true); }} 
