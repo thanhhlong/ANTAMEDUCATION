@@ -29,6 +29,7 @@ export interface Lesson {
   order: number;
   title: string;
   desc: string;
+  content?: string; // Full lesson theory content, viewable in-app
   driveLink: string;
   // Lesson content (document/drive link) visibility
   contentHidden?: boolean;

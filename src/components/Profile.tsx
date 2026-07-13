@@ -159,7 +159,7 @@ export function ProfilePage({ user, attempts, certificates, lessons }: ProfilePa
                   </p>
                 </div>
                 <Badge tone={a.passed ? "green" : "amber"}>
-                  {a.score.toFixed(1)}/10
+                  {a.score.toFixed(1)}/{a.total}
                 </Badge>
               </div>
             ))}
