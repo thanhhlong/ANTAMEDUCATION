@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Users, 
-  User as UserIcon, 
-  FileText, 
-  BookOpen, 
-  MessageSquare, 
-  TrendingUp, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search, 
-  Download, 
+import {
+  Users,
+  User as UserIcon,
+  FileText,
+  BookOpen,
+  MessageSquare,
+  TrendingUp,
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  Download,
   Upload,
   Check,
   X,
-  Award
+  Award,
+  RefreshCw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { User, Question, Lesson, Post, Attempt } from '../types';
@@ -277,6 +278,30 @@ export function AdminStudents({ users, setUsers, attempts, showToast }: AdminStu
     URL.revokeObjectURL(url);
   };
 
+  const [syncing, setSyncing] = useState(false);
+  const syncToGoogleSheet = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/accounts-sheet/full-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accounts: users.map(u => ({ name: u.name, email: u.email, password: u.password, role: u.role, grade: u.grade }))
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "\u0110\u1ED3ng b\u1ED9 Google Sheet th\u1EA5t b\u1EA1i.", "error");
+        return;
+      }
+      showToast("\u0110\u00E3 \u0111\u1ED3ng b\u1ED9 to\u00E0n b\u1ED9 t\u00E0i kho\u1EA3n l\u00EAn Google Sheet.");
+    } catch {
+      showToast("Kh\u00F4ng th\u1EC3 k\u1EBFt n\u1ED1i t\u1EDBi m\u00E1y ch\u1EE7 \u0111\u1EC3 \u0111\u1ED3ng b\u1ED9.", "error");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div className="animate-fadeUp">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -297,6 +322,15 @@ export function AdminStudents({ users, setUsers, attempts, showToast }: AdminStu
           </label>
           <Button icon={<Download size={14} />} size="sm" variant="secondary" onClick={exportCSV}>
             Xuất CSV
+          </Button>
+          <Button
+            icon={<RefreshCw size={14} className={syncing ? "animate-spin" : ""} />}
+            size="sm"
+            variant="secondary"
+            disabled={syncing}
+            onClick={syncToGoogleSheet}
+          >
+            Đồng bộ Google Sheet
           </Button>
           <Button icon={<Plus size={14} />} size="sm" onClick={() => { setEditing(null); setModalOpen(true); }}>
             Thêm tài khoản

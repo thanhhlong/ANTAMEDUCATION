@@ -8,6 +8,7 @@ import { attemptsRouter } from './_routes/attempts.js';
 import { certificatesRouter } from './_routes/certificates.js';
 import { documentsRouter } from './_routes/documents.js';
 import { leaderboardRouter } from './_routes/leaderboard.js';
+import { accountsSheetRouter } from './_routes/accounts-sheet.js';
 
 const app = express();
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use('/api/attempts', attemptsRouter);
 app.use('/api/certificates', certificatesRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
+app.use('/api/accounts-sheet', accountsSheetRouter);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
