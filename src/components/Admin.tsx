@@ -811,6 +811,7 @@ export function LessonFormModal({ open, onClose, onSave, editing, defaultSubject
   const [grade, setGrade] = useState(defaultGrade);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
+  const [content, setContent] = useState('');
   const [driveLink, setDriveLink] = useState('');
   const [order, setOrder] = useState(1);
 
@@ -820,6 +821,7 @@ export function LessonFormModal({ open, onClose, onSave, editing, defaultSubject
       setGrade(editing.grade);
       setTitle(editing.title);
       setDesc(editing.desc);
+      setContent(editing.content || '');
       setDriveLink(editing.driveLink);
       setOrder(editing.order);
     } else {
@@ -827,6 +829,7 @@ export function LessonFormModal({ open, onClose, onSave, editing, defaultSubject
       setGrade(defaultGrade);
       setTitle('');
       setDesc('');
+      setContent('');
       setDriveLink('');
       setOrder(1);
     }
@@ -838,6 +841,7 @@ export function LessonFormModal({ open, onClose, onSave, editing, defaultSubject
       grade: Number(grade),
       title: title.trim(),
       desc: desc.trim(),
+      content: content.trim(),
       driveLink: driveLink.trim(),
       order: Number(order)
     });
@@ -857,6 +861,7 @@ export function LessonFormModal({ open, onClose, onSave, editing, defaultSubject
         
         <Input label="Tên bài học" value={title} onChange={e => setTitle(e.target.value)} placeholder="Ví dụ: Bài 1: Số tự nhiên" />
         <Textarea label="Mô tả ngắn" rows={2} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Mô tả nội dung học tập..." />
+        <Textarea label="Nội dung bài học (hiện cho học sinh xem trong app)" rows={6} value={content} onChange={e => setContent(e.target.value)} placeholder="Lý thuyết đầy đủ của bài học..." />
         <Input label="Link chia sẻ Google Drive *" value={driveLink} onChange={e => setDriveLink(e.target.value)} placeholder="https://drive.google.com/..." />
         <Input label="Thứ tự bài" type="number" value={order} onChange={e => setOrder(Number(e.target.value))} />
         

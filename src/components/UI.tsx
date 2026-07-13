@@ -375,7 +375,7 @@ export function LessonTrack({
             key={lesson.id}
             disabled={!unlocked}
             onClick={() => onSelect && onSelect(lesson.id)}
-            title={`${lesson.title}${best ? ` · ${best.score}/10` : ""}`}
+            title={`${lesson.title}${best ? ` · ${best.score}/${best.total}` : ""}`}
             className={`${size} shrink-0 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
               passed
                 ? "bg-emerald-500 border-emerald-500 text-white"

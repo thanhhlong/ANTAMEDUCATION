@@ -19,6 +19,7 @@ interface StudentHomeProps {
 
 export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject }: StudentHomeProps) {
   const [selectedSubject, setSelectedSubject] = useState<string>("Toán");
+  const [viewingLesson, setViewingLesson] = useState<Lesson | null>(null);
 
   const getMySubjectLessons = (subject: string) => {
     return orderedLessons(lessons, subject, user.grade || 6).filter(isLessonContentVisible);
@@ -140,14 +141,24 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
                         </p>
                         <p className="text-xs text-slate-400 truncate mt-0.5">{l.desc}</p>
                       </div>
-                      <a 
-                        href={l.driveLink} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        className={`shrink-0 inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-white ${activeColor.text} shadow-xs border border-slate-150 hover:bg-slate-100 transition-colors`}
-                      >
-                        <ExternalLink size={12} /> Drive
-                      </a>
+                      <div className="shrink-0 flex items-center gap-1.5">
+                        {l.content && (
+                          <button
+                            onClick={() => setViewingLesson(l)}
+                            className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-white ${activeColor.text} shadow-xs border border-slate-150 hover:bg-slate-100 transition-colors`}
+                          >
+                            <BookOpen size={12} /> Xem bài học
+                          </button>
+                        )}
+                        <a
+                          href={l.driveLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-white ${activeColor.text} shadow-xs border border-slate-150 hover:bg-slate-100 transition-colors`}
+                        >
+                          <ExternalLink size={12} /> Drive
+                        </a>
+                      </div>
                     </div>
                   ))}
                   {activeLessons.length === 0 && (
@@ -165,7 +176,7 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
                     Tiến trình từng bài học
                   </h3>
                   <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                    Đạt từ 8.0 điểm trở lên trong bài kiểm tra để mở khoá bài học tiếp theo.
+                    Đạt tối thiểu 80% số điểm trong bài kiểm tra để mở khoá bài học tiếp theo.
                   </p>
                 </div>
 
@@ -187,6 +198,10 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
           </Card>
         </div>
       </div>
+
+      <Modal open={!!viewingLesson} onClose={() => setViewingLesson(null)} title={viewingLesson?.title || ""} wide>
+        <p className="text-sm text-slate-600 whitespace-pre-line leading-relaxed">{viewingLesson?.content}</p>
+      </Modal>
     </div>
   );
 }
@@ -218,7 +233,7 @@ export function QuizSelectPage({
       <div className="mb-6">
         <h1 className="text-2xl font-extrabold text-slate-800">Kiểm tra theo bài học</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Chọn môn học và bài học; mỗi bài chia làm 3 cấp độ (10 câu/cấp), đạt ≥8 điểm để mở khoá cấp tiếp theo. Qua cả 3 cấp để hoàn thành bài học.
+          Chọn môn học và bài học; mỗi bài chia làm 3 cấp độ, đạt ≥80% số điểm để mở khoá cấp tiếp theo. Qua cả 3 cấp để hoàn thành bài học.
         </p>
       </div>
 
@@ -265,7 +280,7 @@ export function QuizSelectPage({
                   <span className="font-bold text-sm text-slate-700">{lesson.title}</span>
                   {lessonDone && tier.medal && <MedalDot medal={tier.medal} />}
                 </div>
-                <p className="text-[11px] text-slate-400 -mt-2">Mỗi cấp 10 câu hỏi · Cần ≥8 điểm để qua cấp</p>
+                <p className="text-[11px] text-slate-400 -mt-2">Mỗi cấp có bộ câu hỏi riêng · Cần đạt ≥80% để qua cấp</p>
 
                 <div className="grid grid-cols-3 gap-2">
                   {SUB_LEVELS.map(level => {
@@ -286,7 +301,7 @@ export function QuizSelectPage({
                           {subUnlocked ? (passed ? "✓" : best ? "Làm lại" : "Bắt đầu") : "Khoá"}
                         </Button>
                         {best && (
-                          <span className="text-[9px] text-slate-400 font-medium">{best.score.toFixed(1)}/10</span>
+                          <span className="text-[9px] text-slate-400 font-medium">{best.score.toFixed(1)}/{best.total}</span>
                         )}
                       </div>
                     );
@@ -387,6 +402,7 @@ export function ExamPage({ user, subject, lessonId, level, lessons, questions, a
     });
 
     totalScore = Math.round(totalScore * 10) / 10;
+    const total = qs.length;
 
     onSubmit({
       subject,
@@ -394,8 +410,8 @@ export function ExamPage({ user, subject, lessonId, level, lessons, questions, a
       lessonId,
       level,
       score: totalScore,
-      total: 10,
-      passed: totalScore >= 8,
+      total,
+      passed: totalScore / total >= 0.8,
       details
     });
   };
@@ -577,15 +593,18 @@ export function ResultPage({ result, lessons, questions, onContinue, onRetry }: 
 
         <div className="text-5xl font-extrabold text-emerald-600 mb-2">
           {result.score.toFixed(1)}
-          <span className="text-xl text-slate-300">/10</span>
+          <span className="text-xl text-slate-300">/{result.total}</span>
         </div>
+        <p className="text-xs text-slate-400 mb-4">
+          Đạt {Math.round((result.score / result.total) * 100)}% số điểm
+        </p>
 
         <p className="text-sm text-slate-500 mb-6 px-4">
           {passed
             ? (isFinalLevel
                 ? `Bạn đã qua cả 3 cấp độ và hoàn thành bài học — mở khoá bài học tiếp theo.`
-                : `Bạn đã đạt điều kiện (≥8 điểm) để mở khoá ${SUB_LEVEL_NAME[result.level + 1]} của bài học này.`)
-            : `Cần đạt tối thiểu 8/10 điểm để qua cấp. Hãy ôn tập và thử lại nhé!`
+                : `Bạn đã đạt điều kiện (≥80% số điểm) để mở khoá ${SUB_LEVEL_NAME[result.level + 1]} của bài học này.`)
+            : `Cần đạt tối thiểu 80% số điểm để qua cấp. Hãy ôn tập và thử lại nhé!`
           }
         </p>
 
