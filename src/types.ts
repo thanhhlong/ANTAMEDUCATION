@@ -19,6 +19,7 @@ export interface Question {
   correct?: number;   // For mcq
   sampleAnswer?: string; // For short answer
   keywords?: string[];   // For essay
+  explanation?: string;  // Shown to students on review: why the correct answer is correct
 }
 
 export interface Lesson {

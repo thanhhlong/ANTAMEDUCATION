@@ -246,6 +246,7 @@ export default function App() {
           level={examState.level}
           lessons={lessons}
           questions={questions}
+          attempts={attempts}
           onSubmit={handleSubmitExam}
           onCancel={() => setExamState(null)}
         />
@@ -255,6 +256,7 @@ export default function App() {
         <ResultPage
           result={result}
           lessons={lessons}
+          questions={questions}
           onContinue={() => { setResult(null); setPage("quiz"); }}
           onRetry={() => { setExamState({ subject: result.subject, lessonId: result.lessonId, level: result.level }); setResult(null); }}
         />
