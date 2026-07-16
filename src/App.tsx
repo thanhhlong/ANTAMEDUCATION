@@ -27,7 +27,7 @@ import {
 } from './data/seedData';
 import { loadAccounts, saveAccounts, loadScores, saveScores } from './data/storage';
 import { AuthShell, LoginPage, RegisterPage } from './components/Auth';
-import { Toast, Badge, Avatar, isLessonFullyPassed, tierForOrder, AnTamLogo } from './components/UI';
+import { Toast, Badge, Avatar, isLessonFullyPassed, tierForOrder, AnTamLogo, RoleBanner } from './components/UI';
 import { StudentHome, QuizSelectPage, ExamPage, ResultPage } from './components/Student';
 import { TeacherDocuments } from './components/Teacher';
 import { 
@@ -277,13 +277,16 @@ export default function App() {
       );
     } else if (page === 'home') {
       content = (
-        <StudentHome
-          user={currentUser}
-          lessons={lessons}
-          attempts={attempts}
-          setPage={setPage}
-          setActiveSubject={setActiveSubject}
-        />
+        <>
+          <RoleBanner role="student" name={currentUser.name} grade={currentUser.grade} />
+          <StudentHome
+            user={currentUser}
+            lessons={lessons}
+            attempts={attempts}
+            setPage={setPage}
+            setActiveSubject={setActiveSubject}
+          />
+        </>
       );
     } else if (page === 'quiz') {
       content = (
@@ -307,7 +310,12 @@ export default function App() {
     }
   } else if (currentUser.role === 'teacher') {
     if (page === 'posts') {
-      content = <PostsPage user={currentUser} posts={posts} users={users} onAddPost={handleAddPost} />;
+      content = (
+        <>
+          <RoleBanner role="teacher" name={currentUser.name} />
+          <PostsPage user={currentUser} posts={posts} users={users} onAddPost={handleAddPost} />
+        </>
+      );
     } else if (page === 'documents') {
       content = (
         <TeacherDocuments 
@@ -323,14 +331,17 @@ export default function App() {
   } else if (currentUser.role === 'admin') {
     if (page === 'overview') {
       content = (
-        <AdminOverview 
-          users={users} 
-          questions={questions} 
-          posts={posts} 
-          attempts={attempts} 
-          lessons={lessons} 
-          setPage={setPage} 
-        />
+        <>
+          <RoleBanner role="admin" name={currentUser.name} />
+          <AdminOverview
+            users={users}
+            questions={questions}
+            posts={posts}
+            attempts={attempts}
+            lessons={lessons}
+            setPage={setPage}
+          />
+        </>
       );
     } else if (page === 'students') {
       content = (
