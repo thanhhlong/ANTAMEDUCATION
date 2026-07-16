@@ -8,7 +8,18 @@ import {
   Shield,
   EyeOff,
   Eye,
-  Clock3
+  Clock3,
+  Calculator,
+  Languages,
+  FlaskConical,
+  MessageSquare,
+  Bot,
+  Users,
+  HelpCircle,
+  BookOpen,
+  Calendar,
+  GraduationCap,
+  ShieldCheck
 } from 'lucide-react';
 import { Attempt, User, Lesson } from '../types';
 import { LEVELS, SUBJECTS, MAX_SUB_LEVEL } from '../data/seedData';
@@ -25,6 +36,156 @@ export function AnTamLogo({ className = "", size = 48 }: { className?: string; s
       className={className}
       style={{ width: size, height: "auto" }}
     />
+  );
+}
+
+// Brand colors lifted from the physical storefront sign (deep pine green + gold),
+// used only by RoleBanner — the rest of the app keeps its lighter emerald palette.
+const BRAND_GREEN_DEEP = "#0E3B2A";
+const BRAND_GREEN_MID = "#145C3F";
+const BRAND_GREEN_DARK = "#0A2E20";
+const BRAND_GOLD = "#F0B429";
+const BRAND_GOLD_INK = "#9A6B0C";
+
+const STUDENT_CHIPS = [
+  { icon: <Calculator size={14} />, label: "Toán", tone: "bg-sky-50 text-sky-700" },
+  { icon: <BookOpen size={14} />, label: "Văn", tone: "bg-amber-50 text-amber-700" },
+  { icon: <Languages size={14} />, label: "Tiếng Anh", tone: "bg-blue-50 text-blue-700" },
+  { icon: <FlaskConical size={14} />, label: "KHTN", tone: "bg-emerald-50 text-emerald-700" },
+];
+const TEACHER_CHIPS = [
+  { icon: <MessageSquare size={14} />, label: "Bài viết", tone: "bg-sky-50 text-sky-700" },
+  { icon: <FileText size={14} />, label: "Tài liệu", tone: "bg-indigo-50 text-indigo-700" },
+  { icon: <Bot size={14} />, label: "Chatbot", tone: "bg-emerald-50 text-emerald-700" },
+];
+const ADMIN_CHIPS = [
+  { icon: <Users size={14} />, label: "Học sinh", tone: "bg-emerald-50 text-emerald-700" },
+  { icon: <HelpCircle size={14} />, label: "Câu hỏi", tone: "bg-indigo-50 text-indigo-700" },
+  { icon: <BookOpen size={14} />, label: "Bài học", tone: "bg-cyan-50 text-cyan-700" },
+  { icon: <MessageSquare size={14} />, label: "Bài viết", tone: "bg-amber-50 text-amber-700" },
+];
+
+interface RoleBannerProps {
+  role: 'student' | 'teacher' | 'admin';
+  name: string;
+  grade?: number;
+}
+
+// Landing-page banner echoing the real AN TÂM EDUCATION storefront sign:
+// a white panel (logo, headline, subject/tool chips) framed by the deep
+// green + gold brand palette, with a bottom info strip standing in for the
+// sign's phone/address/website row.
+export function RoleBanner({ role, name, grade }: RoleBannerProps) {
+  const today = new Date().toLocaleDateString("vi-VN", { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const meta = role === 'student'
+    ? {
+        eyebrow: "Không gian học tập",
+        heading: `Chào mừng trở lại, ${name}!`,
+        tagline: "Học vững tâm, thi an tâm — chinh phục từng bài học mỗi ngày.",
+        chips: STUDENT_CHIPS,
+      }
+    : role === 'teacher'
+      ? {
+          eyebrow: "Không gian giảng dạy",
+          heading: `Chào mừng trở lại, ${name}!`,
+          tagline: "Đồng hành cùng học sinh trên hành trình vững tâm mỗi ngày.",
+          chips: TEACHER_CHIPS,
+        }
+      : {
+          eyebrow: "Trung tâm quản trị",
+          heading: `Xin chào, ${name}!`,
+          tagline: "Toàn quyền quản lý chương trình học, tài khoản và nội dung của AN TÂM EDUCATION.",
+          chips: ADMIN_CHIPS,
+        };
+
+  return (
+    <div
+      className="relative rounded-3xl p-2 sm:p-2.5 shadow-lg mb-6 overflow-hidden animate-fadeUp"
+      style={{ background: `linear-gradient(135deg, ${BRAND_GREEN_MID} 0%, ${BRAND_GREEN_DEEP} 55%, ${BRAND_GREEN_DARK} 100%)` }}
+    >
+      <div
+        className="pointer-events-none absolute -top-16 left-10 w-56 h-56 rounded-full opacity-40 blur-3xl"
+        style={{ background: `radial-gradient(circle, ${BRAND_GOLD} 0%, transparent 70%)` }}
+      />
+      <div
+        className="pointer-events-none absolute -top-20 right-24 w-40 h-40 rounded-full opacity-20 blur-3xl"
+        style={{ background: "radial-gradient(circle, #ffffff 0%, transparent 70%)" }}
+      />
+
+      <div className="relative bg-white rounded-2xl px-5 py-5 sm:px-7 sm:py-6 flex flex-col lg:flex-row lg:items-center gap-5">
+        <div className="flex items-center shrink-0 lg:pr-6 lg:border-r lg:border-slate-100">
+          <AnTamLogo size={68} />
+        </div>
+
+        <div className="flex-1 min-w-0 lg:pr-6 lg:border-r lg:border-slate-100">
+          <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: BRAND_GOLD_INK }}>
+            {meta.eyebrow}
+          </span>
+          <h2 className="text-xl sm:text-2xl font-extrabold mt-1 text-balance" style={{ color: BRAND_GREEN_DEEP }}>
+            {meta.heading}
+          </h2>
+          <p className="text-sm text-slate-500 mt-1.5 max-w-md">{meta.tagline}</p>
+
+          {role === 'student' && grade ? (
+            <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 mt-3" style={{ background: BRAND_GREEN_DEEP }}>
+              {[6, 7, 8, 9].map((g, i) => (
+                <React.Fragment key={g}>
+                  {i > 0 && <span className="text-xs" style={{ color: BRAND_GOLD }}>•</span>}
+                  <span
+                    className="text-sm font-extrabold"
+                    style={{ color: g === grade ? BRAND_GOLD : "rgba(255,255,255,0.35)" }}
+                  >
+                    {g}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mt-3 text-xs font-bold uppercase tracking-wide border"
+              style={{ borderColor: BRAND_GOLD, color: BRAND_GREEN_DEEP }}
+            >
+              {role === 'teacher' ? 'Giáo viên' : 'Quản trị viên'}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 lg:max-w-[230px]">
+          {meta.chips.map(chip => (
+            <span key={chip.label} className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-xl ${chip.tone}`}>
+              {chip.icon}
+              {chip.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative flex flex-wrap items-center gap-x-5 gap-y-1.5 px-5 sm:px-7 py-2.5">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/90">
+          <Calendar size={13} style={{ color: BRAND_GOLD }} />
+          <span className="capitalize">{today}</span>
+        </span>
+        {role === 'student' && grade && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/90">
+            <GraduationCap size={13} style={{ color: BRAND_GOLD }} />
+            Khối {grade}
+          </span>
+        )}
+        {role === 'teacher' && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/90">
+            <MessageSquare size={13} style={{ color: BRAND_GOLD }} />
+            Chia sẻ kiến thức mỗi tuần
+          </span>
+        )}
+        {role === 'admin' && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/90">
+            <ShieldCheck size={13} style={{ color: BRAND_GOLD }} />
+            Toàn quyền hệ thống
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
