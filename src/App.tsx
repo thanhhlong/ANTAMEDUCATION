@@ -277,16 +277,13 @@ export default function App() {
       );
     } else if (page === 'home') {
       content = (
-        <>
-          <RoleBanner role="student" name={currentUser.name} grade={currentUser.grade} />
-          <StudentHome
-            user={currentUser}
-            lessons={lessons}
-            attempts={attempts}
-            setPage={setPage}
-            setActiveSubject={setActiveSubject}
-          />
-        </>
+        <StudentHome
+          user={currentUser}
+          lessons={lessons}
+          attempts={attempts}
+          setPage={setPage}
+          setActiveSubject={setActiveSubject}
+        />
       );
     } else if (page === 'quiz') {
       content = (
@@ -310,12 +307,7 @@ export default function App() {
     }
   } else if (currentUser.role === 'teacher') {
     if (page === 'posts') {
-      content = (
-        <>
-          <RoleBanner role="teacher" name={currentUser.name} />
-          <PostsPage user={currentUser} posts={posts} users={users} onAddPost={handleAddPost} />
-        </>
-      );
+      content = <PostsPage user={currentUser} posts={posts} users={users} onAddPost={handleAddPost} />;
     } else if (page === 'documents') {
       content = (
         <TeacherDocuments 
@@ -331,17 +323,14 @@ export default function App() {
   } else if (currentUser.role === 'admin') {
     if (page === 'overview') {
       content = (
-        <>
-          <RoleBanner role="admin" name={currentUser.name} />
-          <AdminOverview
-            users={users}
-            questions={questions}
-            posts={posts}
-            attempts={attempts}
-            lessons={lessons}
-            setPage={setPage}
-          />
-        </>
+        <AdminOverview
+          users={users}
+          questions={questions}
+          posts={posts}
+          attempts={attempts}
+          lessons={lessons}
+          setPage={setPage}
+        />
       );
     } else if (page === 'students') {
       content = (
@@ -464,6 +453,7 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1 min-w-0 pt-[140px] lg:pt-0 pb-16 lg:pb-0">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <RoleBanner role={currentUser.role} name={currentUser.name} grade={currentUser.grade} />
           {content}
         </div>
       </main>

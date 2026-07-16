@@ -114,10 +114,6 @@ export function RoleBanner({ role, name, grade }: RoleBannerProps) {
       />
 
       <div className="relative bg-white rounded-2xl px-5 py-5 sm:px-7 sm:py-6 flex flex-col lg:flex-row lg:items-center gap-5">
-        <div className="flex items-center shrink-0 lg:pr-6 lg:border-r lg:border-slate-100">
-          <AnTamLogo size={68} />
-        </div>
-
         <div className="flex-1 min-w-0 lg:pr-6 lg:border-r lg:border-slate-100">
           <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: BRAND_GOLD_INK }}>
             {meta.eyebrow}
