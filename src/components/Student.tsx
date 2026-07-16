@@ -31,17 +31,6 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
 
   return (
     <div className="animate-fadeUp">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-800">
-            Chào {user.name.split(" ").pop()}! 👋
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Hệ thống học tập Khối {user.grade} — Chọn môn học bên dưới để xem bài học và ôn tập.
-          </p>
-        </div>
-      </div>
-
       <div className="grid lg:grid-cols-3 gap-6 items-start">
         {/* BẢNG CHỌN CÁC MÔN RIÊNG BIỆT (Left sidebar, Col span 1) */}
         <div className="space-y-3">
