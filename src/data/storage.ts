@@ -3,6 +3,7 @@
 
 const ACCOUNTS_KEY = "antam_accounts_v1";   // GV / HS / Admin account records
 const SCORES_KEY = "antam_scores_v1";       // Student exam attempts + certificates
+const ATTENDANCE_KEY = "antam_attendance_v1"; // Face enrollments + check-in/out records
 
 function load<T>(key: string): T | null {
   try {
@@ -40,4 +41,17 @@ export function loadScores(): ScoresData | null {
 
 export function saveScores(attempts: unknown[], certificates: unknown[]) {
   save(SCORES_KEY, { attempts, certificates });
+}
+
+export interface AttendanceData {
+  enrollments: unknown[];
+  records: unknown[];
+}
+
+export function loadAttendance(): AttendanceData | null {
+  return load<AttendanceData>(ATTENDANCE_KEY);
+}
+
+export function saveAttendance(enrollments: unknown[], records: unknown[]) {
+  save(ATTENDANCE_KEY, { enrollments, records });
 }

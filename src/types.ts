@@ -96,3 +96,19 @@ export interface ToastData {
   msg: string;
   type: 'success' | 'error' | 'info';
 }
+
+export interface FaceEnrollment {
+  studentId: string;
+  descriptor: number[]; // 128-d face-api.js descriptor, averaged from enrollment captures
+  consentAt: string;    // ISO datetime consent was confirmed
+  consentBy: string;    // Name of the admin/teacher who confirmed consent was obtained
+  enrolledAt: string;   // ISO datetime of enrollment
+}
+
+export interface AttendanceRecord {
+  id: string;
+  studentId: string;
+  date: string;        // YYYY-MM-DD (local date of the attendance day)
+  checkIn?: string;    // ISO datetime
+  checkOut?: string;   // ISO datetime
+}
