@@ -8,7 +8,6 @@ interface Credentials {
   email: string;
   privateKey: string;
   sheetId: string;
-  tabName: string;
 }
 
 function getCredentials(): Credentials | null {
@@ -19,8 +18,7 @@ function getCredentials(): Credentials | null {
   // usually stored with escaped "\n" sequences — unescape them here.
   const privateKey = rawKey.includes('\\n') ? rawKey.replace(/\\n/g, '\n') : rawKey;
   const sheetId = process.env.ACCOUNTS_SHEET_ID || DEFAULT_SHEET_ID;
-  const tabName = process.env.ACCOUNTS_SHEET_TAB_NAME || 'Sheet1';
-  return { email, privateKey, sheetId, tabName };
+  return { email, privateKey, sheetId };
 }
 
 export function sheetsConfigured(): boolean {
@@ -50,6 +48,53 @@ async function getAccessToken(email: string, privateKey: string): Promise<string
   return data.access_token;
 }
 
+// Generic helpers: append one row, or clear + rewrite a whole tab within the
+// shared spreadsheet. Both accounts and attendance sync reuse these against
+// their own tab name so each dataset stays on its own sheet.
+export async function appendSheetRow(tabName: string, row: string[]): Promise<void> {
+  const creds = getCredentials();
+  if (!creds) throw new Error('Chưa cấu hình Google Service Account.');
+  const token = await getAccessToken(creds.email, creds.privateKey);
+
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${creds.sheetId}/values/${encodeURIComponent(tabName)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [row] }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`Ghi Google Sheet thất bại: ${res.status} ${await res.text()}`);
+  }
+}
+
+export async function fullSyncSheet(tabName: string, header: string[], rows: string[][]): Promise<void> {
+  const creds = getCredentials();
+  if (!creds) throw new Error('Chưa cấu hình Google Service Account.');
+  const token = await getAccessToken(creds.email, creds.privateKey);
+
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${creds.sheetId}/values/${encodeURIComponent(tabName)}:clear`,
+    { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  const values = [header, ...rows];
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${creds.sheetId}/values/${encodeURIComponent(tabName)}!A1?valueInputOption=USER_ENTERED`,
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`Ghi Google Sheet thất bại: ${res.status} ${await res.text()}`);
+  }
+}
+
+// --- Accounts sync (Đồng bộ tài khoản) ---
+
 export interface SheetAccountRow {
   name: string;
   email: string;
@@ -59,9 +104,10 @@ export interface SheetAccountRow {
   date?: string;
 }
 
-const HEADER = ['Họ tên', 'Email', 'Mật khẩu', 'Vai trò', 'Khối', 'Thời điểm đăng ký'];
+const ACCOUNTS_HEADER = ['Họ tên', 'Email', 'Mật khẩu', 'Vai trò', 'Khối', 'Thời điểm đăng ký'];
+const ACCOUNTS_TAB = process.env.ACCOUNTS_SHEET_TAB_NAME || 'Sheet1';
 
-function toRow(u: SheetAccountRow): string[] {
+function accountToRow(u: SheetAccountRow): string[] {
   return [
     u.name,
     u.email,
@@ -73,43 +119,33 @@ function toRow(u: SheetAccountRow): string[] {
 }
 
 export async function appendAccountRow(user: SheetAccountRow): Promise<void> {
-  const creds = getCredentials();
-  if (!creds) throw new Error('Chưa cấu hình Google Service Account.');
-  const token = await getAccessToken(creds.email, creds.privateKey);
-
-  const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${creds.sheetId}/values/${encodeURIComponent(creds.tabName)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [toRow(user)] }),
-    }
-  );
-  if (!res.ok) {
-    throw new Error(`Ghi Google Sheet thất bại: ${res.status} ${await res.text()}`);
-  }
+  await appendSheetRow(ACCOUNTS_TAB, accountToRow(user));
 }
 
 export async function fullSyncAccounts(users: SheetAccountRow[]): Promise<void> {
-  const creds = getCredentials();
-  if (!creds) throw new Error('Chưa cấu hình Google Service Account.');
-  const token = await getAccessToken(creds.email, creds.privateKey);
+  await fullSyncSheet(ACCOUNTS_TAB, ACCOUNTS_HEADER, users.map(accountToRow));
+}
 
-  await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${creds.sheetId}/values/${encodeURIComponent(creds.tabName)}:clear`,
-    { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
-  );
+// --- Attendance sync (Đồng bộ điểm danh) ---
 
-  const values = [HEADER, ...users.map(toRow)];
-  const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${creds.sheetId}/values/${encodeURIComponent(creds.tabName)}!A1?valueInputOption=USER_ENTERED`,
-    {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values }),
-    }
-  );
-  if (!res.ok) {
-    throw new Error(`Ghi Google Sheet thất bại: ${res.status} ${await res.text()}`);
-  }
+export interface SheetAttendanceRow {
+  studentName: string;
+  date: string;
+  checkIn?: string;
+  checkOut?: string;
+}
+
+const ATTENDANCE_HEADER = ['Họ tên học sinh', 'Ngày', 'Giờ vào', 'Giờ ra'];
+const ATTENDANCE_TAB = process.env.ATTENDANCE_SHEET_TAB_NAME || 'DiemDanh';
+
+function attendanceToRow(r: SheetAttendanceRow): string[] {
+  return [r.studentName, r.date, r.checkIn || '', r.checkOut || ''];
+}
+
+export async function appendAttendanceRow(record: SheetAttendanceRow): Promise<void> {
+  await appendSheetRow(ATTENDANCE_TAB, attendanceToRow(record));
+}
+
+export async function fullSyncAttendance(records: SheetAttendanceRow[]): Promise<void> {
+  await fullSyncSheet(ATTENDANCE_TAB, ATTENDANCE_HEADER, records.map(attendanceToRow));
 }

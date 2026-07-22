@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Shield, 
-  Home, 
-  HelpCircle, 
-  Trophy, 
-  User as UserIcon, 
-  BookOpen, 
-  MessageSquare, 
-  FileText, 
-  LogOut, 
-  Menu, 
-  X, 
-  CheckCircle2, 
-  Award 
+import {
+  Shield,
+  Home,
+  HelpCircle,
+  Trophy,
+  User as UserIcon,
+  BookOpen,
+  MessageSquare,
+  FileText,
+  LogOut,
+  Menu,
+  X,
+  CheckCircle2,
+  Award,
+  Camera
 } from 'lucide-react';
-import { User, Question, Lesson, Post, Document, Attempt, Certificate, ToastData } from './types';
+import { User, Question, Lesson, Post, Document, Attempt, Certificate, ToastData, FaceEnrollment, AttendanceRecord } from './types';
 import {
   generateUsers,
   generateAllQuestions,
@@ -25,22 +26,28 @@ import {
   nid,
   todayStr
 } from './data/seedData';
-import { loadAccounts, saveAccounts, loadScores, saveScores } from './data/storage';
+import { loadAccounts, saveAccounts, loadScores, saveScores, loadAttendance, saveAttendance } from './data/storage';
 import { AuthShell, LoginPage, RegisterPage } from './components/Auth';
 import { Toast, Badge, Avatar, isLessonFullyPassed, tierForOrder, AnTamLogo, RoleBanner } from './components/UI';
 import { StudentHome, QuizSelectPage, ExamPage, ResultPage } from './components/Student';
 import { TeacherDocuments } from './components/Teacher';
-import { 
-  AdminOverview, 
-  AdminStudents, 
-  AdminQuestions, 
-  AdminLessons, 
-  AdminPosts 
+import {
+  AdminOverview,
+  AdminStudents,
+  AdminQuestions,
+  AdminLessons,
+  AdminPosts
 } from './components/Admin';
 import { RankingPage } from './components/Ranking';
 import { ProfilePage } from './components/Profile';
 import { PostsPage } from './components/Posts';
 import { ChatbotPage } from './components/Chatbot';
+
+// Lazy-loaded: pulls in face-api.js + TensorFlow.js (~600KB), so only the
+// Admin/Teacher actually opening the attendance page pay that cost.
+const AttendancePage = React.lazy(() =>
+  import('./components/Attendance').then(m => ({ default: m.AttendancePage }))
+);
 
 const NAV_ITEMS = {
   student: [
@@ -55,6 +62,7 @@ const NAV_ITEMS = {
     { key: "posts", label: "Bài viết của tôi", icon: <MessageSquare size={17} /> },
     { key: "documents", label: "Tài liệu Chatbot", icon: <FileText size={17} /> },
     { key: "chatbot", label: "Dùng thử Chatbot", icon: <MessageSquare size={17} /> },
+    { key: "attendance", label: "Điểm danh khuôn mặt", icon: <Camera size={17} /> },
   ],
   admin: [
     { key: "overview", label: "Tổng quan", icon: <Home size={17} /> },
@@ -63,6 +71,7 @@ const NAV_ITEMS = {
     { key: "lessons", label: "Chương trình học", icon: <BookOpen size={17} /> },
     { key: "posts", label: "Duyệt bài viết", icon: <MessageSquare size={17} /> },
     { key: "ranking", label: "Xếp hạng & điểm", icon: <Trophy size={17} /> },
+    { key: "attendance", label: "Điểm danh khuôn mặt", icon: <Camera size={17} /> },
   ],
 };
 
@@ -94,10 +103,14 @@ export default function App() {
   const [savedScores] = useState(() => loadScores());
   const [attempts, setAttempts] = useState<Attempt[]>(() => (savedScores?.attempts as Attempt[]) || []);
   const [certificates, setCertificates] = useState<Certificate[]>(() => (savedScores?.certificates as Certificate[]) || []);
+  const [savedAttendance] = useState(() => loadAttendance());
+  const [faceEnrollments, setFaceEnrollments] = useState<FaceEnrollment[]>(() => (savedAttendance?.enrollments as FaceEnrollment[]) || []);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => (savedAttendance?.records as AttendanceRecord[]) || []);
 
-  // Persist accounts and scores whenever they change.
+  // Persist accounts, scores and attendance data whenever they change.
   useEffect(() => { saveAccounts(users); }, [users]);
   useEffect(() => { saveScores(attempts, certificates); }, [attempts, certificates]);
+  useEffect(() => { saveAttendance(faceEnrollments, attendanceRecords); }, [faceEnrollments, attendanceRecords]);
 
   // Navigation states
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -319,6 +332,21 @@ export default function App() {
       );
     } else if (page === 'chatbot') {
       content = <ChatbotPage user={currentUser} documents={documents} />;
+    } else if (page === 'attendance') {
+      content = (
+        <React.Suspense fallback={<p className="text-sm text-slate-400">Đang tải chức năng điểm danh...</p>}>
+          <AttendancePage
+            mode="kiosk-only"
+            currentUserName={currentUser.name}
+            students={users.filter(u => u.role === 'student')}
+            enrollments={faceEnrollments}
+            setEnrollments={setFaceEnrollments}
+            records={attendanceRecords}
+            setRecords={setAttendanceRecords}
+            showToast={showToast}
+          />
+        </React.Suspense>
+      );
     }
   } else if (currentUser.role === 'admin') {
     if (page === 'overview') {
@@ -357,6 +385,21 @@ export default function App() {
       content = <AdminPosts posts={posts} setPosts={setPosts} users={users} showToast={showToast} />;
     } else if (page === 'ranking') {
       content = <RankingPage users={users} attempts={attempts} lessons={lessons} currentUser={currentUser} />;
+    } else if (page === 'attendance') {
+      content = (
+        <React.Suspense fallback={<p className="text-sm text-slate-400">Đang tải chức năng điểm danh...</p>}>
+          <AttendancePage
+            mode="full"
+            currentUserName={currentUser.name}
+            students={users.filter(u => u.role === 'student')}
+            enrollments={faceEnrollments}
+            setEnrollments={setFaceEnrollments}
+            records={attendanceRecords}
+            setRecords={setAttendanceRecords}
+            showToast={showToast}
+          />
+        </React.Suspense>
+      );
     }
   }
 
