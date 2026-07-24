@@ -19,21 +19,6 @@ function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('vi-VN');
 }
 
-// Best-effort sync to the Admin's Google Sheet — mirrors the accounts-sheet pattern.
-// Silently ignored if the backend isn't configured with Sheets credentials yet.
-function syncAttendanceAppend(record: AttendanceRecord, studentName: string) {
-  fetch('/api/attendance-sheet/append', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      studentName,
-      date: record.date,
-      checkIn: record.checkIn || '',
-      checkOut: record.checkOut || ''
-    })
-  }).catch(() => {});
-}
-
 function useCamera(active: boolean) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [ready, setReady] = useState(false);
@@ -241,7 +226,6 @@ function KioskView({ students, enrollments, records, setRecords }: KioskViewProp
       if (idx === -1) {
         const rec: AttendanceRecord = { id: nid('att'), studentId, date: today, checkIn: now.toISOString() };
         setStatus({ msg: `Xin chào, ${student.name}! Đã điểm danh VÀO lúc ${fmtTime(rec.checkIn)}.`, kind: 'in' });
-        syncAttendanceAppend(rec, student.name);
         return [...prev, rec];
       }
       const existing = prev[idx];
@@ -253,7 +237,6 @@ function KioskView({ students, enrollments, records, setRecords }: KioskViewProp
         }
         const updated = { ...existing, checkOut: now.toISOString() };
         setStatus({ msg: `Tạm biệt, ${student.name}! Đã điểm danh RA lúc ${fmtTime(updated.checkOut)}.`, kind: 'out' });
-        syncAttendanceAppend(updated, student.name);
         const copy = [...prev];
         copy[idx] = updated;
         return copy;
@@ -367,7 +350,7 @@ function AttendanceLogTab({ students, records, showToast }: AttendanceLogTabProp
   const syncToDrive = async () => {
     setSyncing(true);
     try {
-      const res = await fetch('/api/attendance-sheet/full-sync', {
+      const res = await fetch('/api/drive-sync/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

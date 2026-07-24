@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Shield,
   Home,
@@ -112,6 +112,49 @@ export default function App() {
   useEffect(() => { saveScores(attempts, certificates); }, [attempts, certificates]);
   useEffect(() => { saveAttendance(faceEnrollments, attendanceRecords); }, [faceEnrollments, attendanceRecords]);
 
+  // Best-effort auto-sync to the shared Google Drive folder whenever accounts,
+  // attendance or lesson/question content actually changes (skipping the initial
+  // load, which just reflects existing state, not a real change). Errors are
+  // swallowed — an unreachable or unconfigured Drive should never block the app.
+  const skipUsersSync = useRef(true);
+  useEffect(() => {
+    if (skipUsersSync.current) { skipUsersSync.current = false; return; }
+    fetch('/api/drive-sync/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        users: users.map(u => ({ name: u.name, email: u.email, password: u.password, role: u.role, grade: u.grade }))
+      })
+    }).catch(() => {});
+  }, [users]);
+
+  const skipAttendanceSync = useRef(true);
+  useEffect(() => {
+    if (skipAttendanceSync.current) { skipAttendanceSync.current = false; return; }
+    fetch('/api/drive-sync/attendance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        records: attendanceRecords.map(r => ({
+          studentName: users.find(u => u.id === r.studentId)?.name || '',
+          date: r.date,
+          checkIn: r.checkIn || '',
+          checkOut: r.checkOut || ''
+        }))
+      })
+    }).catch(() => {});
+  }, [attendanceRecords]);
+
+  const skipLessonsSync = useRef(true);
+  useEffect(() => {
+    if (skipLessonsSync.current) { skipLessonsSync.current = false; return; }
+    fetch('/api/drive-sync/lessons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lessons, questions })
+    }).catch(() => {});
+  }, [lessons, questions]);
+
   // Navigation states
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
@@ -144,20 +187,6 @@ export default function App() {
     setCurrentUser(user);
     setPage('home');
     showToast("Đăng ký thành công! Chào mừng bạn đến với AN TÂM.");
-    // Best-effort: mirror the new account into the Admin's Google Sheet.
-    // Silently ignored if the backend isn't configured with Sheets credentials yet.
-    fetch('/api/accounts-sheet/append', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: user.name,
-        email: user.email,
-        password: user.password,
-        role: user.role,
-        grade: user.grade,
-        date: new Date().toISOString()
-      })
-    }).catch(() => {});
   };
 
   const handleLogout = () => {
