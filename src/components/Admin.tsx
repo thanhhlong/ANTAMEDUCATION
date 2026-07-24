@@ -279,22 +279,22 @@ export function AdminStudents({ users, setUsers, attempts, showToast }: AdminStu
   };
 
   const [syncing, setSyncing] = useState(false);
-  const syncToGoogleSheet = async () => {
+  const syncToGoogleDrive = async () => {
     setSyncing(true);
     try {
-      const res = await fetch('/api/accounts-sheet/full-sync', {
+      const res = await fetch('/api/drive-sync/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          accounts: users.map(u => ({ name: u.name, email: u.email, password: u.password, role: u.role, grade: u.grade }))
+          users: users.map(u => ({ name: u.name, email: u.email, password: u.password, role: u.role, grade: u.grade }))
         })
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        showToast(data.error || "\u0110\u1ED3ng b\u1ED9 Google Sheet th\u1EA5t b\u1EA1i.", "error");
+        showToast(data.error || "\u0110\u1ED3ng b\u1ED9 Google Drive th\u1EA5t b\u1EA1i.", "error");
         return;
       }
-      showToast("\u0110\u00E3 \u0111\u1ED3ng b\u1ED9 to\u00E0n b\u1ED9 t\u00E0i kho\u1EA3n l\u00EAn Google Sheet.");
+      showToast("\u0110\u00E3 \u0111\u1ED3ng b\u1ED9 to\u00E0n b\u1ED9 t\u00E0i kho\u1EA3n l\u00EAn Google Drive.");
     } catch {
       showToast("Kh\u00F4ng th\u1EC3 k\u1EBFt n\u1ED1i t\u1EDBi m\u00E1y ch\u1EE7 \u0111\u1EC3 \u0111\u1ED3ng b\u1ED9.", "error");
     } finally {
@@ -328,9 +328,9 @@ export function AdminStudents({ users, setUsers, attempts, showToast }: AdminStu
             size="sm"
             variant="secondary"
             disabled={syncing}
-            onClick={syncToGoogleSheet}
+            onClick={syncToGoogleDrive}
           >
-            Đồng bộ Google Sheet
+            Đồng bộ Google Drive
           </Button>
           <Button icon={<Plus size={14} />} size="sm" onClick={() => { setEditing(null); setModalOpen(true); }}>
             Thêm tài khoản
