@@ -100,3 +100,22 @@ export async function upsertCsvFile(filename: string, csvContent: string): Promi
     throw new Error(`Tạo file Google Drive thất bại: ${res.status} ${await res.text()}`);
   }
 }
+
+// Reads a CSV file's raw text content by name from the configured shared Drive
+// folder. Returns null if the file doesn't exist yet (e.g. before any export has
+// ever run) — callers should treat that as "no data available", not an error.
+export async function downloadCsvFile(filename: string): Promise<string | null> {
+  const creds = getCredentials();
+  if (!creds) throw new Error('Chưa cấu hình Google Service Account.');
+  const token = await getAccessToken(creds.email, creds.privateKey);
+  const fileId = await findFileId(token, creds.folderId, filename);
+  if (!fileId) return null;
+
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Đọc file Google Drive thất bại: ${res.status} ${await res.text()}`);
+  }
+  return await res.text();
+}
