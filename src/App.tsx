@@ -112,6 +112,26 @@ export default function App() {
   useEffect(() => { saveScores(attempts, certificates); }, [attempts, certificates]);
   useEffect(() => { saveAttendance(faceEnrollments, attendanceRecords); }, [faceEnrollments, attendanceRecords]);
 
+  // On first load, pull the latest accounts/attendance/lessons+questions from the
+  // shared Google Drive folder and let them fully replace local state — Drive is
+  // treated as the source of truth across devices. Best-effort: if Drive isn't
+  // configured, has no data yet (e.g. before the first export ever ran), or the
+  // request fails, silently keep whatever is already in local state/localStorage
+  // rather than wiping real data with an empty result.
+  useEffect(() => {
+    fetch('/api/drive-sync/accounts').then(r => r.ok ? r.json() : null).then(data => {
+      if (data?.users?.length) setUsers(data.users);
+    }).catch(() => {});
+    fetch('/api/drive-sync/attendance').then(r => r.ok ? r.json() : null).then(data => {
+      if (data?.records?.length) setAttendanceRecords(data.records);
+    }).catch(() => {});
+    fetch('/api/drive-sync/lessons').then(r => r.ok ? r.json() : null).then(data => {
+      if (data?.lessons?.length) setLessons(data.lessons);
+      if (data?.questions?.length) setQuestions(data.questions);
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Best-effort auto-sync to the shared Google Drive folder whenever accounts,
   // attendance or lesson/question content actually changes (skipping the initial
   // load, which just reflects existing state, not a real change). Errors are
@@ -123,7 +143,7 @@ export default function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        users: users.map(u => ({ name: u.name, email: u.email, password: u.password, role: u.role, grade: u.grade }))
+        users: users.map(u => ({ id: u.id, name: u.name, email: u.email, password: u.password, role: u.role, grade: u.grade }))
       })
     }).catch(() => {});
   }, [users]);
@@ -136,6 +156,8 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         records: attendanceRecords.map(r => ({
+          id: r.id,
+          studentId: r.studentId,
           studentName: users.find(u => u.id === r.studentId)?.name || '',
           date: r.date,
           checkIn: r.checkIn || '',
