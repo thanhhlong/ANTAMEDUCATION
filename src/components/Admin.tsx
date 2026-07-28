@@ -190,6 +190,10 @@ export function AdminStudents({ users, setUsers, attempts, showToast }: AdminStu
       setUsers(prev => prev.map(u => u.id === editing.id ? { ...u, ...data } : u));
       showToast("Đã cập nhật tài khoản.");
     } else {
+      if (users.some(u => norm(u.name) === norm(data.name))) {
+        showToast("Tên này đã tồn tại! Đăng nhập dùng tên nên cần đặt tên khác để phân biệt.", "error");
+        return;
+      }
       if (users.some(u => norm(u.email) === norm(data.email))) {
         showToast("Email đã tồn tại!", "error");
         return;
@@ -228,6 +232,7 @@ export function AdminStudents({ users, setUsers, attempts, showToast }: AdminStu
           
           if (!name || !email) return;
           if (users.some(u => norm(u.email) === norm(email)) || newUsers.some(u => norm(u.email) === norm(email))) return;
+          if (users.some(u => norm(u.name) === norm(name)) || newUsers.some(u => norm(u.name) === norm(name))) return;
           
           newUsers.push({
             id: nid("u"),
@@ -286,7 +291,7 @@ export function AdminStudents({ users, setUsers, attempts, showToast }: AdminStu
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          users: users.map(u => ({ name: u.name, email: u.email, password: u.password, role: u.role, grade: u.grade }))
+          users: users.map(u => ({ id: u.id, name: u.name, email: u.email, password: u.password, role: u.role, grade: u.grade }))
         })
       });
       if (!res.ok) {

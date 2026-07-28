@@ -66,24 +66,19 @@ interface LoginProps {
 }
 
 export function LoginPage({ onLogin, goRegister, users }: LoginProps) {
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const u = users.find(x => norm(x.email) === norm(email) && x.password === password);
+    const u = users.find(x => norm(x.name) === norm(name) && x.password === password);
     if (!u) {
-      setError("Email hoặc mật khẩu không đúng.");
+      setError("Tên hoặc mật khẩu không đúng.");
       return;
     }
     setError('');
     onLogin(u);
-  };
-
-  const quickFill = (em: string, pw: string) => {
-    setEmail(em);
-    setPassword(pw);
   };
 
   return (
@@ -91,65 +86,40 @@ export function LoginPage({ onLogin, goRegister, users }: LoginProps) {
       <div className="lg:hidden flex flex-col items-center mb-6 text-center">
         <AnTamLogo size={120} />
       </div>
-      
+
       <h1 className="text-2xl font-extrabold text-slate-800 mb-1">Đăng nhập</h1>
       <p className="text-sm text-slate-500 mb-6">Chào mừng quay lại! Hãy đăng nhập để tiếp tục học tập.</p>
-      
+
       <form onSubmit={submit} className="space-y-4">
-        <Input 
-          label="Email" 
-          type="email" 
-          placeholder="ban@antam.vn" 
-          value={email} 
-          onChange={e => setEmail(e.target.value)} 
-          required 
+        <Input
+          label="Họ và tên"
+          placeholder="Nguyễn Văn A"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          required
         />
-        <Input 
-          label="Mật khẩu" 
-          type="password" 
-          placeholder="••••••••" 
-          value={password} 
-          onChange={e => setPassword(e.target.value)} 
-          required 
+        <Input
+          label="Mật khẩu"
+          type="password"
+          placeholder="••••••••"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
         />
-        
+
         {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-        
+
         <Button type="submit" className="w-full justify-center" size="lg">
           Đăng nhập
         </Button>
       </form>
-      
+
       <p className="text-sm text-slate-500 mt-5 text-center">
         Chưa có tài khoản?{" "}
         <button onClick={goRegister} className="text-emerald-600 font-semibold hover:underline">
           Đăng ký ngay
         </button>
       </p>
-      
-      <div className="mt-6 border-t border-slate-100 pt-4">
-        <p className="text-xs text-slate-400 mb-2 font-medium">Tài khoản demo (bấm để điền nhanh):</p>
-        <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={() => quickFill("admin@antam.vn", "admin123")} 
-            className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors"
-          >
-            Admin
-          </button>
-          <button 
-            onClick={() => quickFill("gv.lan@antam.vn", "gv123456")} 
-            className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors"
-          >
-            Giáo viên
-          </button>
-          <button 
-            onClick={() => quickFill("hs1@antam.vn", "hs123456")} 
-            className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors"
-          >
-            Học sinh (Khối 6)
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -171,6 +141,10 @@ export function RegisterPage({ onRegister, goLogin, users }: RegisterProps) {
     e.preventDefault();
     if (!name.trim() || !email.trim() || password.length < 6) {
       setError("Vui lòng nhập đầy đủ thông tin, mật khẩu tối thiểu 6 ký tự.");
+      return;
+    }
+    if (users.some(u => norm(u.name) === norm(name))) {
+      setError("Tên này đã được đăng ký, vui lòng dùng họ tên đầy đủ hơn để phân biệt (dùng để đăng nhập).");
       return;
     }
     if (users.some(u => norm(u.email) === norm(email))) {
