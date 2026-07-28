@@ -118,27 +118,43 @@ export default function App() {
   // configured, has no data yet (e.g. before the first export ever ran), or the
   // request fails, silently keep whatever is already in local state/localStorage
   // rather than wiping real data with an empty result.
+  //
+  // Each fetched array is stashed by reference below so the auto-sync effects
+  // can tell "this state change IS the hydration applying" (skip — writing it
+  // straight back would just re-encode whatever Drive already had) apart from
+  // "a real edit happened after hydration" (sync it). Comparing timing/mount-order
+  // instead of object identity was tried first and was wrong: the fetch resolves
+  // asynchronously, so the write-effect's dependency fires a second time well
+  // after the initial "skip the first render" guard has already been consumed —
+  // that second fire used to be treated as a real edit and got written straight
+  // back to Drive, permanently baking any column-layout mismatch into the file.
+  const hydratedUsersRef = useRef<User[] | null>(null);
+  const hydratedAttendanceRef = useRef<AttendanceRecord[] | null>(null);
+  const hydratedLessonsRef = useRef<Lesson[] | null>(null);
+  const hydratedQuestionsRef = useRef<Question[] | null>(null);
   useEffect(() => {
     fetch('/api/drive-sync/accounts').then(r => r.ok ? r.json() : null).then(data => {
-      if (data?.users?.length) setUsers(data.users);
+      if (data?.users?.length) { hydratedUsersRef.current = data.users; setUsers(data.users); }
     }).catch(() => {});
     fetch('/api/drive-sync/attendance').then(r => r.ok ? r.json() : null).then(data => {
-      if (data?.records?.length) setAttendanceRecords(data.records);
+      if (data?.records?.length) { hydratedAttendanceRef.current = data.records; setAttendanceRecords(data.records); }
     }).catch(() => {});
     fetch('/api/drive-sync/lessons').then(r => r.ok ? r.json() : null).then(data => {
-      if (data?.lessons?.length) setLessons(data.lessons);
-      if (data?.questions?.length) setQuestions(data.questions);
+      if (data?.lessons?.length) { hydratedLessonsRef.current = data.lessons; setLessons(data.lessons); }
+      if (data?.questions?.length) { hydratedQuestionsRef.current = data.questions; setQuestions(data.questions); }
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Best-effort auto-sync to the shared Google Drive folder whenever accounts,
-  // attendance or lesson/question content actually changes (skipping the initial
-  // load, which just reflects existing state, not a real change). Errors are
-  // swallowed — an unreachable or unconfigured Drive should never block the app.
+  // attendance or lesson/question content actually changes (skipping both the
+  // initial render and the Drive hydration applying — neither is a real edit).
+  // Errors are swallowed — an unreachable or unconfigured Drive should never
+  // block the app.
   const skipUsersSync = useRef(true);
   useEffect(() => {
     if (skipUsersSync.current) { skipUsersSync.current = false; return; }
+    if (users === hydratedUsersRef.current) return;
     fetch('/api/drive-sync/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -151,6 +167,7 @@ export default function App() {
   const skipAttendanceSync = useRef(true);
   useEffect(() => {
     if (skipAttendanceSync.current) { skipAttendanceSync.current = false; return; }
+    if (attendanceRecords === hydratedAttendanceRef.current) return;
     fetch('/api/drive-sync/attendance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -170,6 +187,7 @@ export default function App() {
   const skipLessonsSync = useRef(true);
   useEffect(() => {
     if (skipLessonsSync.current) { skipLessonsSync.current = false; return; }
+    if (lessons === hydratedLessonsRef.current && questions === hydratedQuestionsRef.current) return;
     fetch('/api/drive-sync/lessons', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
