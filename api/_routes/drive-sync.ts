@@ -73,17 +73,38 @@ driveSyncRouter.get('/accounts', async (_req, res) => {
   }
   try {
     const csv = await downloadCsvFile('TaiKhoan.csv');
-    const rows = csv ? parseCsv(csv).slice(1) : [];
+    const allRows = csv ? parseCsv(csv) : [];
+    const header = allRows[0] || [];
+    const rows = allRows.slice(1);
+    // Back-compat: a file exported before the "Mã" (id) column was added has only
+    // 5 columns [Họ tên, Email, Mật khẩu, Vai trò, Khối]. Reading it with the new
+    // 6-column layout silently shifts every field by one (name becomes id, email
+    // becomes name, password becomes email, ...) — detect it via the header so an
+    // old file already sitting on Drive doesn't corrupt every account on load.
+    const isLegacy = header.length <= 5;
     const users = rows
-      .filter(r => r[0])
-      .map(r => ({
-        id: r[0],
-        name: r[1] || '',
-        email: r[2] || '',
-        password: r[3] || undefined,
-        role: ROLE_KEY[r[4]] || r[4] || 'student',
-        grade: r[5] ? Number(r[5]) : undefined,
-      }));
+      .filter(r => (isLegacy ? r[0] : r[0]))
+      .map(r => {
+        if (isLegacy) {
+          const [name, email, password, roleLabel, grade] = r;
+          return {
+            id: 'legacy_' + (email || name || '').trim().toLowerCase(),
+            name: name || '',
+            email: email || '',
+            password: password || undefined,
+            role: ROLE_KEY[roleLabel] || roleLabel || 'student',
+            grade: grade ? Number(grade) : undefined,
+          };
+        }
+        return {
+          id: r[0],
+          name: r[1] || '',
+          email: r[2] || '',
+          password: r[3] || undefined,
+          role: ROLE_KEY[r[4]] || r[4] || 'student',
+          grade: r[5] ? Number(r[5]) : undefined,
+        };
+      });
     res.json({ users });
   } catch (err) {
     res.status(502).json({ error: (err as Error).message });
@@ -140,7 +161,11 @@ driveSyncRouter.get('/attendance', async (_req, res) => {
   }
   try {
     const csv = await downloadCsvFile('DiemDanh.csv');
-    const rows = csv ? parseCsv(csv).slice(1) : [];
+    const allRows = csv ? parseCsv(csv) : [];
+    // Back-compat: a file exported before the "Mã"/"Mã học sinh" columns existed
+    // only has 4 columns — the studentId link can't be reconstructed from that
+    // layout, so treat it as no usable data rather than misreading the columns.
+    const rows = (allRows[0] || []).length >= 6 ? allRows.slice(1) : [];
     const records = rows
       .filter(r => r[0])
       .map(r => ({
@@ -249,7 +274,11 @@ driveSyncRouter.get('/lessons', async (_req, res) => {
   }
   try {
     const csv = await downloadCsvFile('BaiHocCauHoi.csv');
-    const rows = csv ? parseCsv(csv).slice(1) : [];
+    const allRows = csv ? parseCsv(csv) : [];
+    // Back-compat: the older "pretty report" layout (12 columns, answers stored as
+    // text) can't be told apart reliably from real content — treat anything short
+    // of the current 24-column technical schema as no usable data.
+    const rows = (allRows[0] || []).length >= 24 ? allRows.slice(1) : [];
     const lessons: LessonInput[] = [];
     const questions: QuestionInput[] = [];
 
