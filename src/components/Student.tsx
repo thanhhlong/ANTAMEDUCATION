@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { BookOpen, ExternalLink, ChevronDown, ChevronUp, Award, Clock, HelpCircle } from 'lucide-react';
-import { User, Lesson, Attempt, Question } from '../types';
+import { BookOpen, ExternalLink, ChevronDown, ChevronUp, Award, Clock, HelpCircle, ClipboardList } from 'lucide-react';
+import { User, Lesson, Attempt, Question, Assignment } from '../types';
 import {
   Card, Badge, LessonTrack, highestPassedLessonOrder, isLessonUnlocked,
   bestAttemptsByLessonLevel, isSubLevelUnlocked, isLessonFullyPassed,
   orderedLessons, isLessonContentVisible, isLessonQuizVisible, tierForOrder,
-  MedalDot, Button, EmptyState, Input, Textarea, Modal
+  MedalDot, Button, EmptyState, Input, Textarea, Modal, pendingAssignmentsFor
 } from './UI';
 import { SUBJECTS, SUBJECT_COLOR, SUB_LEVELS, SUB_LEVEL_NAME, MAX_SUB_LEVEL, norm } from '../data/seedData';
 
@@ -13,13 +13,16 @@ interface StudentHomeProps {
   user: User;
   lessons: Lesson[];
   attempts: Attempt[];
+  assignments: Assignment[];
   setPage: (page: string) => void;
   setActiveSubject: (subject: string) => void;
+  onStartExam: (subject: string, lessonId: string, level: number) => void;
 }
 
-export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject }: StudentHomeProps) {
+export function StudentHome({ user, lessons, attempts, assignments, setPage, setActiveSubject, onStartExam }: StudentHomeProps) {
   const [selectedSubject, setSelectedSubject] = useState<string>("Toán");
   const [viewingLesson, setViewingLesson] = useState<Lesson | null>(null);
+  const pendingAssignments = pendingAssignmentsFor(assignments, attempts, user);
 
   const getMySubjectLessons = (subject: string) => {
     return orderedLessons(lessons, subject, user.grade || 6).filter(isLessonContentVisible);
@@ -31,6 +34,38 @@ export function StudentHome({ user, lessons, attempts, setPage, setActiveSubject
 
   return (
     <div className="animate-fadeUp">
+      {pendingAssignments.length > 0 && (
+        <Card className="p-5 mb-6 border-amber-200 bg-amber-50/40">
+          <div className="flex items-center gap-2 mb-3">
+            <ClipboardList size={18} className="text-amber-600" />
+            <h3 className="font-bold text-slate-800">Bài tập cần làm ({pendingAssignments.length})</h3>
+          </div>
+          <div className="space-y-2">
+            {pendingAssignments.map(a => {
+              const lesson = lessons.find(l => l.id === a.lessonId);
+              const overdue = new Date(a.dueAt).getTime() < Date.now();
+              return (
+                <div key={a.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-amber-100">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-700 truncate">
+                      {a.subject} · {lesson?.title || "Bài học"} · {SUB_LEVEL_NAME[a.level]}
+                    </p>
+                    <p className={`text-xs mt-0.5 ${overdue ? "text-red-500 font-semibold" : "text-slate-400"}`}>
+                      {overdue ? "Đã quá hạn — " : "Hạn: "}
+                      {new Date(a.dueAt).toLocaleString('vi-VN')}
+                    </p>
+                    {a.note && <p className="text-xs text-slate-500 mt-1 italic">{a.note}</p>}
+                  </div>
+                  <Button size="sm" onClick={() => onStartExam(a.subject, a.lessonId, a.level)}>
+                    Làm ngay
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       <div className="grid lg:grid-cols-3 gap-6 items-start">
         {/* BẢNG CHỌN CÁC MÔN RIÊNG BIỆT (Left sidebar, Col span 1) */}
         <div className="space-y-3">

@@ -13,9 +13,10 @@ import {
   X,
   CheckCircle2,
   Award,
-  Camera
+  Camera,
+  ClipboardList
 } from 'lucide-react';
-import { User, Question, Lesson, Post, Document, Attempt, Certificate, ToastData, FaceEnrollment, AttendanceRecord } from './types';
+import { User, Question, Lesson, Post, Document, Attempt, Certificate, ToastData, FaceEnrollment, AttendanceRecord, Assignment } from './types';
 import {
   generateUsers,
   generateAllQuestions,
@@ -26,11 +27,11 @@ import {
   nid,
   todayStr
 } from './data/seedData';
-import { loadAccounts, saveAccounts, loadScores, saveScores, loadAttendance, saveAttendance } from './data/storage';
+import { loadAccounts, saveAccounts, loadScores, saveScores, loadAttendance, saveAttendance, loadAssignments, saveAssignments } from './data/storage';
 import { AuthShell, LoginPage, RegisterPage } from './components/Auth';
-import { Toast, Badge, Avatar, isLessonFullyPassed, tierForOrder, AnTamLogo, RoleBanner } from './components/UI';
+import { Toast, Badge, Avatar, isLessonFullyPassed, tierForOrder, AnTamLogo, RoleBanner, pendingAssignmentsFor } from './components/UI';
 import { StudentHome, QuizSelectPage, ExamPage, ResultPage } from './components/Student';
-import { TeacherDocuments } from './components/Teacher';
+import { TeacherDocuments, TeacherAssignments } from './components/Teacher';
 import {
   AdminOverview,
   AdminStudents,
@@ -60,6 +61,7 @@ const NAV_ITEMS = {
   ],
   teacher: [
     { key: "posts", label: "Bài viết của tôi", icon: <MessageSquare size={17} /> },
+    { key: "assignments", label: "Giao bài tập", icon: <ClipboardList size={17} /> },
     { key: "documents", label: "Tài liệu Chatbot", icon: <FileText size={17} /> },
     { key: "chatbot", label: "Dùng thử Chatbot", icon: <MessageSquare size={17} /> },
     { key: "attendance", label: "Điểm danh khuôn mặt", icon: <Camera size={17} /> },
@@ -106,9 +108,11 @@ export default function App() {
   const [savedAttendance] = useState(() => loadAttendance());
   const [faceEnrollments, setFaceEnrollments] = useState<FaceEnrollment[]>(() => (savedAttendance?.enrollments as FaceEnrollment[]) || []);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => (savedAttendance?.records as AttendanceRecord[]) || []);
+  const [assignments, setAssignments] = useState<Assignment[]>(() => loadAssignments<Assignment[]>() || []);
 
   // Persist accounts, scores and attendance data whenever they change.
   useEffect(() => { saveAccounts(users); }, [users]);
+  useEffect(() => { saveAssignments(assignments); }, [assignments]);
   useEffect(() => { saveScores(attempts, certificates); }, [attempts, certificates]);
   useEffect(() => { saveAttendance(faceEnrollments, attendanceRecords); }, [faceEnrollments, attendanceRecords]);
 
@@ -220,6 +224,15 @@ export default function App() {
       setPage('home');
     }
     showToast(`Xin chào, ${user.name}!`);
+    if (user.role === 'student') {
+      const pending = pendingAssignmentsFor(assignments, attempts, user);
+      if (pending.length > 0) {
+        // Delayed so it doesn't collide with (overwrite) the welcome toast above.
+        setTimeout(() => {
+          showToast(`Bạn có ${pending.length} bài tập cần hoàn thành!`, 'info');
+        }, 3200);
+      }
+    }
   };
 
   const handleRegister = (user: User) => {
@@ -363,8 +376,10 @@ export default function App() {
           user={currentUser}
           lessons={lessons}
           attempts={attempts}
+          assignments={assignments}
           setPage={setPage}
           setActiveSubject={setActiveSubject}
+          onStartExam={handleStartExam}
         />
       );
     } else if (page === 'quiz') {
@@ -390,6 +405,18 @@ export default function App() {
   } else if (currentUser.role === 'teacher') {
     if (page === 'posts') {
       content = <PostsPage user={currentUser} posts={posts} users={users} onAddPost={handleAddPost} />;
+    } else if (page === 'assignments') {
+      content = (
+        <TeacherAssignments
+          user={currentUser}
+          lessons={lessons}
+          students={users.filter(u => u.role === 'student')}
+          attempts={attempts}
+          assignments={assignments}
+          setAssignments={setAssignments}
+          showToast={showToast}
+        />
+      );
     } else if (page === 'documents') {
       content = (
         <TeacherDocuments 
