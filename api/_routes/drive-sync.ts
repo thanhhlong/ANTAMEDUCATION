@@ -1,5 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { upsertCsvFile, downloadCsvFile, driveConfigured } from '../_lib/googleDrive.js';
+import {
+  upsertCsvFile, downloadCsvFile, driveConfigured,
+  getDriveAccessToken, rootSyncFolderId, findSubfolderId,
+} from '../_lib/googleDrive.js';
 import { buildCsv, parseCsv } from '../_lib/csv.js';
 
 export const driveSyncRouter = Router();
@@ -214,16 +217,76 @@ interface QuestionInput {
 const TYPE_LABEL: Record<string, string> = { mcq: 'Trắc nghiệm', short: 'Trả lời ngắn', essay: 'Tự luận' };
 const TYPE_KEY: Record<string, string> = { 'Trắc nghiệm': 'mcq', 'Trả lời ngắn': 'short', 'Tự luận': 'essay' };
 
-// Wider, technical schema (not a pretty report) so a round-trip read-back can
-// reconstruct lessons/questions exactly — ids, lesson order, visibility scheduling,
-// and the correct-answer *index* (not its text) all need to survive unambiguously.
-const LESSONS_HEADER = [
-  'Loại', 'Mã', 'Môn học', 'Khối', 'Thứ tự', 'Mã bài học', 'Cấp độ',
-  'Tiêu đề bài học', 'Mô tả ngắn', 'Nội dung bài học', 'Link tài liệu',
+// Must match src/data/seedData.ts SUBJECTS/GRADES — api/ is a separate TS
+// context from src/, so this is kept as its own small, stable copy rather
+// than shared across the boundary.
+const SUBJECTS = ['Toán', 'Tiếng Anh', 'Văn', 'KHTN'];
+const GRADES = [6, 7, 8, 9];
+
+// One CSV per lesson (Mã, Thứ tự, Tiêu đề, ...) — subject/grade aren't columns
+// here since they're already encoded by the subject subfolder + Khối{n} filename.
+const LESSON_HEADER = [
+  'Mã', 'Thứ tự', 'Tiêu đề bài học', 'Mô tả ngắn', 'Nội dung bài học', 'Link tài liệu',
   'Ẩn nội dung', 'Thời điểm hiện nội dung', 'Ẩn bài kiểm tra', 'Thời điểm hiện bài kiểm tra',
-  'Nội dung câu hỏi', 'Đáp án A', 'Đáp án B', 'Đáp án C', 'Đáp án D',
-  'Đáp án đúng (số)', 'Đáp án mẫu', 'Từ khoá', 'Giải thích',
 ];
+const QUESTION_HEADER = [
+  'Loại', 'Mã', 'Mã bài học', 'Cấp độ', 'Nội dung câu hỏi',
+  'Đáp án A', 'Đáp án B', 'Đáp án C', 'Đáp án D', 'Đáp án đúng (số)', 'Đáp án mẫu', 'Từ khoá', 'Giải thích',
+];
+
+function lessonRow(l: LessonInput): string[] {
+  return [
+    l.id, String(l.order), l.title, l.desc || '', l.content || '', l.driveLink || '',
+    l.contentHidden ? 'TRUE' : 'FALSE', l.contentVisibleAt || '',
+    l.quizHidden ? 'TRUE' : 'FALSE', l.quizVisibleAt || '',
+  ];
+}
+
+function questionRow(q: QuestionInput): string[] {
+  return [
+    TYPE_LABEL[q.type] || q.type, q.id, q.lessonId, String(q.level), q.content,
+    q.options?.[0] || '', q.options?.[1] || '', q.options?.[2] || '', q.options?.[3] || '',
+    q.type === 'mcq' && q.correct != null ? String(q.correct + 1) : '',
+    q.sampleAnswer || '', q.keywords?.join('; ') || '', q.explanation || '',
+  ];
+}
+
+function parseLessonRow(r: string[], subject: string, grade: number): LessonInput | null {
+  if (!r[0]) return null;
+  return {
+    id: r[0],
+    subject,
+    grade,
+    order: Number(r[1]) || 0,
+    title: r[2] || '',
+    desc: r[3] || '',
+    content: r[4] || '',
+    driveLink: r[5] || '',
+    contentHidden: r[6] === 'TRUE',
+    contentVisibleAt: r[7] || undefined,
+    quizHidden: r[8] === 'TRUE',
+    quizVisibleAt: r[9] || undefined,
+  };
+}
+
+function parseQuestionRow(r: string[], subject: string, grade: number): QuestionInput | null {
+  if (!r[1]) return null;
+  const type = TYPE_KEY[r[0]] || 'mcq';
+  return {
+    id: r[1],
+    subject,
+    grade,
+    lessonId: r[2] || '',
+    level: Number(r[3]) || 1,
+    type,
+    content: r[4] || '',
+    options: type === 'mcq' ? [r[5] || '', r[6] || '', r[7] || '', r[8] || ''] : undefined,
+    correct: type === 'mcq' && r[9] ? Number(r[9]) - 1 : undefined,
+    sampleAnswer: type === 'short' ? r[10] || '' : undefined,
+    keywords: type === 'essay' && r[11] ? r[11].split(';').map(k => k.trim()).filter(Boolean) : undefined,
+    explanation: r[12] || '',
+  };
+}
 
 driveSyncRouter.post('/lessons', async (req, res) => {
   if (!driveConfigured()) {
@@ -237,31 +300,47 @@ driveSyncRouter.post('/lessons', async (req, res) => {
     res.status(400).json({ error: 'Dữ liệu bài học/câu hỏi không hợp lệ.' });
     return;
   }
-  try {
-    const rows: string[][] = [];
 
-    for (const l of lessons as LessonInput[]) {
-      rows.push([
-        'Bài học', l.id, l.subject, String(l.grade), String(l.order), '', '',
-        l.title, l.desc || '', l.content || '', l.driveLink || '',
-        l.contentHidden ? 'TRUE' : 'FALSE', l.contentVisibleAt || '',
-        l.quizHidden ? 'TRUE' : 'FALSE', l.quizVisibleAt || '',
-        '', '', '', '', '', '', '', '', '',
-      ]);
-    }
-    for (const q of questions as QuestionInput[]) {
-      rows.push([
-        TYPE_LABEL[q.type] || q.type, q.id, q.subject, String(q.grade), '', q.lessonId, String(q.level),
-        '', '', '', '',
-        '', '', '', '',
-        q.content, q.options?.[0] || '', q.options?.[1] || '', q.options?.[2] || '', q.options?.[3] || '',
-        q.type === 'mcq' && q.correct != null ? String(q.correct + 1) : '',
-        q.sampleAnswer || '', q.keywords?.join('; ') || '', q.explanation || '',
-      ]);
-    }
-    const csv = buildCsv(LESSONS_HEADER, rows);
-    await upsertCsvFile('BaiHocCauHoi.csv', csv);
-    res.status(204).end();
+  try {
+    const token = await getDriveAccessToken();
+    const root = rootSyncFolderId();
+    const warnings: string[] = [];
+
+    await Promise.all(SUBJECTS.map(async (subject) => {
+      const subjectLessons = (lessons as LessonInput[]).filter(l => l.subject === subject);
+      const subjectQuestions = (questions as QuestionInput[]).filter(q => q.subject === subject);
+      if (subjectLessons.length === 0 && subjectQuestions.length === 0) return;
+
+      let folderId: string | null;
+      try {
+        folderId = await findSubfolderId(token, root, subject);
+      } catch (err) {
+        warnings.push(`${subject}: ${(err as Error).message}`);
+        return;
+      }
+      if (!folderId) {
+        warnings.push(`Chưa có thư mục "${subject}" trong Drive — bỏ qua môn này.`);
+        return;
+      }
+
+      await Promise.all(GRADES.map(async (grade) => {
+        const gradeLessons = subjectLessons.filter(l => l.grade === grade);
+        const gradeQuestions = subjectQuestions.filter(q => q.grade === grade);
+        if (gradeLessons.length === 0 && gradeQuestions.length === 0) return;
+        try {
+          const lessonCsv = buildCsv(LESSON_HEADER, gradeLessons.map(lessonRow));
+          const questionCsv = buildCsv(QUESTION_HEADER, gradeQuestions.map(questionRow));
+          await Promise.all([
+            upsertCsvFile(`BaiHoc_Khoi${grade}.csv`, lessonCsv, folderId!, token),
+            upsertCsvFile(`CauHoi_Khoi${grade}.csv`, questionCsv, folderId!, token),
+          ]);
+        } catch (err) {
+          warnings.push(`${subject} Khối ${grade}: ${(err as Error).message}`);
+        }
+      }));
+    }));
+
+    res.status(200).json({ synced: true, warnings: warnings.length ? warnings : undefined });
   } catch (err) {
     res.status(502).json({ error: (err as Error).message });
   }
@@ -273,50 +352,35 @@ driveSyncRouter.get('/lessons', async (_req, res) => {
     return;
   }
   try {
-    const csv = await downloadCsvFile('BaiHocCauHoi.csv');
-    const allRows = csv ? parseCsv(csv) : [];
-    // Back-compat: the older "pretty report" layout (12 columns, answers stored as
-    // text) can't be told apart reliably from real content — treat anything short
-    // of the current 24-column technical schema as no usable data.
-    const rows = (allRows[0] || []).length >= 24 ? allRows.slice(1) : [];
+    const token = await getDriveAccessToken();
+    const root = rootSyncFolderId();
     const lessons: LessonInput[] = [];
     const questions: QuestionInput[] = [];
 
-    for (const r of rows) {
-      if (!r[1]) continue;
-      if (r[0] === 'Bài học') {
-        lessons.push({
-          id: r[1],
-          subject: r[2] || '',
-          grade: Number(r[3]) || 0,
-          order: Number(r[4]) || 0,
-          title: r[7] || '',
-          desc: r[8] || '',
-          content: r[9] || '',
-          driveLink: r[10] || '',
-          contentHidden: r[11] === 'TRUE',
-          contentVisibleAt: r[12] || undefined,
-          quizHidden: r[13] === 'TRUE',
-          quizVisibleAt: r[14] || undefined,
-        });
-      } else {
-        const type = TYPE_KEY[r[0]] || 'mcq';
-        questions.push({
-          id: r[1],
-          subject: r[2] || '',
-          grade: Number(r[3]) || 0,
-          lessonId: r[5] || '',
-          level: Number(r[6]) || 1,
-          type,
-          content: r[15] || '',
-          options: type === 'mcq' ? [r[16] || '', r[17] || '', r[18] || '', r[19] || ''] : undefined,
-          correct: type === 'mcq' && r[20] ? Number(r[20]) - 1 : undefined,
-          sampleAnswer: type === 'short' ? r[21] || '' : undefined,
-          keywords: type === 'essay' && r[22] ? r[22].split(';').map(k => k.trim()).filter(Boolean) : undefined,
-          explanation: r[23] || '',
-        });
-      }
-    }
+    await Promise.all(SUBJECTS.map(async (subject) => {
+      const folderId = await findSubfolderId(token, root, subject);
+      if (!folderId) return;
+
+      await Promise.all(GRADES.map(async (grade) => {
+        const [lessonCsv, questionCsv] = await Promise.all([
+          downloadCsvFile(`BaiHoc_Khoi${grade}.csv`, folderId, token),
+          downloadCsvFile(`CauHoi_Khoi${grade}.csv`, folderId, token),
+        ]);
+        if (lessonCsv) {
+          for (const r of parseCsv(lessonCsv).slice(1)) {
+            const l = parseLessonRow(r, subject, grade);
+            if (l) lessons.push(l);
+          }
+        }
+        if (questionCsv) {
+          for (const r of parseCsv(questionCsv).slice(1)) {
+            const q = parseQuestionRow(r, subject, grade);
+            if (q) questions.push(q);
+          }
+        }
+      }));
+    }));
+
     res.json({ lessons, questions });
   } catch (err) {
     res.status(502).json({ error: (err as Error).message });
