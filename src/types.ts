@@ -112,3 +112,17 @@ export interface AttendanceRecord {
   checkIn?: string;    // ISO datetime
   checkOut?: string;   // ISO datetime
 }
+
+export interface Assignment {
+  id: string;
+  teacherId: string;
+  subject: string;
+  grade: number;
+  lessonId: string;
+  level: number; // Which sub-level (1/2/3) of the lesson's quiz must be passed
+  targetType: 'grade' | 'students'; // Whole grade cohort, or hand-picked students
+  studentIds?: string[]; // Only set when targetType === 'students'
+  note?: string;
+  dueAt: string;      // ISO datetime deadline
+  createdAt: string;  // ISO datetime
+}

@@ -21,7 +21,7 @@ import {
   GraduationCap,
   ShieldCheck
 } from 'lucide-react';
-import { Attempt, User, Lesson } from '../types';
+import { Attempt, User, Lesson, Assignment } from '../types';
 import { LEVELS, SUBJECTS, MAX_SUB_LEVEL } from '../data/seedData';
 import logoUrl from '../assets/logo.png';
 
@@ -431,6 +431,26 @@ export function bestAttemptsByLessonLevel(attempts: Attempt[], userId: string): 
 // A lesson only counts as fully passed once its final sub-level (Cấp 3) has been passed.
 export function isLessonFullyPassed(attempts: Attempt[], userId: string, subject: string, grade: number, lessonId: string): boolean {
   return attempts.some(a => a.userId === userId && a.subject === subject && a.grade === grade && a.lessonId === lessonId && a.level === MAX_SUB_LEVEL && a.passed);
+}
+
+// Whether a given student is one of the recipients of a teacher-assigned deadline —
+// either the whole matching grade cohort, or a hand-picked list of students.
+export function isAssignmentApplicable(assignment: Assignment, student: User): boolean {
+  if (assignment.targetType === 'students') return (assignment.studentIds || []).includes(student.id);
+  return student.grade === assignment.grade;
+}
+
+// "Completed" means the student has a passing attempt at exactly the assigned
+// lesson + sub-level — the same signal that already unlocks the next sub-level.
+export function isAssignmentCompleted(assignment: Assignment, attempts: Attempt[], studentId: string): boolean {
+  return attempts.some(a => a.userId === studentId && a.lessonId === assignment.lessonId && a.level === assignment.level && a.passed);
+}
+
+// Assignments a student still needs to do, soonest deadline first (overdue included).
+export function pendingAssignmentsFor(assignments: Assignment[], attempts: Attempt[], student: User): Assignment[] {
+  return assignments
+    .filter(a => isAssignmentApplicable(a, student) && !isAssignmentCompleted(a, attempts, student.id))
+    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
 }
 
 export function highestPassedLessonOrder(attempts: Attempt[], lessons: Lesson[], userId: string, subject: string, grade: number): number {

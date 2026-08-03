@@ -4,6 +4,7 @@
 const ACCOUNTS_KEY = "antam_accounts_v1";   // GV / HS / Admin account records
 const SCORES_KEY = "antam_scores_v1";       // Student exam attempts + certificates
 const ATTENDANCE_KEY = "antam_attendance_v1"; // Face enrollments + check-in/out records
+const ASSIGNMENTS_KEY = "antam_assignments_v1"; // Teacher-assigned quiz deadlines
 
 function load<T>(key: string): T | null {
   try {
@@ -54,4 +55,12 @@ export function loadAttendance(): AttendanceData | null {
 
 export function saveAttendance(enrollments: unknown[], records: unknown[]) {
   save(ATTENDANCE_KEY, { enrollments, records });
+}
+
+export function loadAssignments<T>(): T | null {
+  return load<T>(ASSIGNMENTS_KEY);
+}
+
+export function saveAssignments(assignments: unknown[]) {
+  save(ASSIGNMENTS_KEY, assignments);
 }
